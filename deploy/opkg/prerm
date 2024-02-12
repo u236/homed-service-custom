@@ -1,0 +1,6 @@
+#!/bin/sh
+
+/etc/init.d/homed-custom stop
+/etc/init.d/homed-custom disable
+
+exit 0

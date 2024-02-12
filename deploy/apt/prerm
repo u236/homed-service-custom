@@ -1,0 +1,6 @@
+#!/bin/bash
+
+systemctl stop homed-custom.service
+systemctl disable homed-custom.service
+
+exit 0

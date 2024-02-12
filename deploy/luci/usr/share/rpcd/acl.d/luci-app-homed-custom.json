@@ -1,0 +1,16 @@
+{
+  "luci-app-homed-custom":
+  {
+    "description": "Grant access to /etc/homed/homed-custom.conf",
+    "read":
+    {
+      "file": {"/etc/homed/homed-custom.conf": ["read"]},
+      "ubus": {"file": ["read"]}
+    },
+    "write":
+    {
+      "file": {"/etc/homed/homed-custom.conf": ["write"]},
+      "ubus": {"file": ["write"]}
+    }
+  }
+}
