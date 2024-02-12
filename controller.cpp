@@ -30,7 +30,7 @@ void Controller::publishProperties(const Device &device)
 void Controller::quit(void)
 {
     for (auto it = m_devices->begin(); it != m_devices->end(); it++)
-        if (!it.value()->real())
+        if (it.value()->active() && !it.value()->real())
             mqttPublish(mqttTopic("device/custom/%1").arg(m_names ? it.value()->name() : it.value()->id()), {{"status", "offline"}}, true);
 
     HOMEd::quit();
@@ -48,7 +48,7 @@ void Controller::mqttConnected(void)
 
     for (auto it = m_devices->begin(); it != m_devices->end(); it++)
     {
-        if (!it.value()->real())
+        if (it.value()->active() && !it.value()->real())
             mqttPublish(mqttTopic("device/custom/%1").arg(m_names ? it.value()->name() : it.value()->id()), {{"status", "online"}}, true);
 
         it.value()->publishExposes(this, it.value()->id(), it.value()->id());
@@ -66,7 +66,7 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
     {
         Device device = m_devices->byName(json.value("device").toString());
 
-        if (device.isNull() || device->real())
+        if (device.isNull() || !device->active() || device->real())
             return;
 
         publishProperties(device);
@@ -77,7 +77,7 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
         Device device = m_devices->byName(list.value(2));
         Endpoint endpoint;
 
-        if (device.isNull() || device->real())
+        if (device.isNull() || !device->active() || device->real())
             return;
 
         endpoint = device->endpoints().value(DEFAULT_ENDPOINT);
@@ -114,7 +114,8 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
 void Controller::updateProperties(void)
 {
     for (auto it = m_devices->begin(); it != m_devices->end(); it++)
-        publishProperties(it.value());
+        if (it.value()->active())
+            publishProperties(it.value());
 }
 
 void Controller::statusUpdated(const QJsonObject &json)

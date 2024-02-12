@@ -52,14 +52,7 @@ void DeviceList::storeDatabase(void)
     QJsonArray devices;
 
     for (auto it = begin(); it != end(); it++)
-    {
-        QJsonObject json = {{"id", it.value()->id()}};
-
-        if (it.value()->name() != it.value()->id())
-            json.insert("name", it.value()->name());
-
-        devices.append(json);
-    }
+        devices.append(QJsonObject {{"id", it.value()->id()}, {"name", it.value()->name()}, {"active", it.value()->active()}, {"discovery", it.value()->discovery()}, {"cloud", it.value()->cloud()}});
 
     emit statusUpdated(QJsonObject {{"devices", devices}, {"timestamp", QDateTime::currentSecsSinceEpoch()}, {"version", SERVICE_VERSION}});
 }
@@ -83,6 +76,15 @@ void DeviceList::unserializeDevices(const QJsonArray &devices)
             QString id = json.value("id").toString();
             Device device(new DeviceObject(id, json.value("name").toString()));
             Endpoint endpoint(new EndpointObject(DEFAULT_ENDPOINT, device));
+
+            if (json.contains("active"))
+                device->setActive(json.value("active").toBool());
+
+            if (json.contains("discovery"))
+                device->setDiscovery(json.value("discovery").toBool());
+
+            if (json.contains("cloud"))
+                device->setCloud(json.value("cloud").toBool());
 
             device->setReal(json.value("real").toBool());
             device->options() = json.value("options").toObject().toVariantMap();
