@@ -3,29 +3,87 @@
 #include "expose.h"
 #include "logger.h"
 
-DeviceList::DeviceList(QSettings *config, QObject *parent) : QObject(parent), m_timer(new QTimer(this))
+DeviceList::DeviceList(QSettings *config, QObject *parent) : QObject(parent), m_databaseTimer(new QTimer(this)), m_propertiesTimer(new QTimer(this)), m_sync(false)
 {
     m_databaseFile.setFileName(config->value("device/database", "/opt/homed-custom/database.json").toString());
     m_propertiesFile.setFileName(config->value("device/properties", "/opt/homed-custom/properties.json").toString());
 
     m_specialExposes = {"light", "switch", "cover", "lock", "thermostat"};
 
-    connect(m_timer, &QTimer::timeout, this, &DeviceList::writeProperties);
-    m_timer->setSingleShot(true);
+    connect(m_databaseTimer, &QTimer::timeout, this, &DeviceList::writeDatabase);
+    connect(m_propertiesTimer, &QTimer::timeout, this, &DeviceList::writeProperties);
+
+    m_databaseTimer->setSingleShot(true);
+    m_propertiesTimer->setSingleShot(true);
 }
 
 DeviceList::~DeviceList(void)
 {
+    m_sync = true;
+
+    writeDatabase();
     writeProperties();
 }
 
-Device DeviceList::byName(const QString &name)
+Device DeviceList::byName(const QString &name, int *index)
 {
-    for (auto it = begin(); it != end(); it++)
-        if (it.value()->name() == name)
-            return it.value();
+    for (int i = 0; i < count(); i++)
+    {
+        if (at(i)->id() != name && at(i)->name() != name)
+            continue;
 
-    return value(name);
+        if (index)
+            *index = i;
+
+        return at(i);
+    }
+
+    return Device();
+}
+
+Device DeviceList::parse(const QJsonObject &json)
+{
+    QString id = json.value("id").toString();
+    QJsonArray exposes = json.value("exposes").toArray();
+    Device device;
+    Endpoint endpoint;
+
+    if (!id.isEmpty() && !exposes.isEmpty())
+    {
+        device = Device(new DeviceObject(id, json.value("name").toString()));
+        endpoint = Endpoint(new EndpointObject(DEFAULT_ENDPOINT, device));
+
+        if (json.contains("active"))
+            device->setActive(json.value("active").toBool());
+
+        if (json.contains("discovery"))
+            device->setDiscovery(json.value("discovery").toBool());
+
+        if (json.contains("cloud"))
+            device->setCloud(json.value("cloud").toBool());
+
+        for (auto it = exposes.begin(); it != exposes.end(); it++)
+        {
+            QString name = it->toString();
+            QMap <QString, QVariant> option = device->options().value(name).toMap();
+            Expose expose;
+            int type;
+
+            type = QMetaType::type(QString(m_specialExposes.contains(name) ? name : option.value("type").toString()).append("Expose").toUtf8());
+
+            expose = Expose(type ? reinterpret_cast <ExposeObject*> (QMetaType::create(type)) : new ExposeObject(name));
+            expose->setName(name);
+            expose->setParent(endpoint.data());
+
+            endpoint->exposes().append(expose);
+        }
+
+        device->setReal(json.value("real").toBool());
+        device->options() = json.value("options").toObject().toVariantMap();
+        device->endpoints().insert(endpoint->id(), endpoint);
+    }
+
+    return device;
 }
 
 void DeviceList::init(void)
@@ -47,19 +105,15 @@ void DeviceList::init(void)
     m_propertiesFile.close();
 }
 
-void DeviceList::storeDatabase(void)
+void DeviceList::storeDatabase(bool sync)
 {
-    QJsonArray devices;
-
-    for (auto it = begin(); it != end(); it++)
-        devices.append(QJsonObject {{"id", it.value()->id()}, {"name", it.value()->name()}, {"active", it.value()->active()}, {"discovery", it.value()->discovery()}, {"cloud", it.value()->cloud()}});
-
-    emit statusUpdated(QJsonObject {{"devices", devices}, {"timestamp", QDateTime::currentSecsSinceEpoch()}, {"version", SERVICE_VERSION}});
+    m_sync = sync;
+    m_databaseTimer->start(STORE_DATABASE_DELAY);
 }
 
 void DeviceList::storeProperties(void)
 {
-    m_timer->start(STORE_PROPERTIES_DELAY);
+    m_propertiesTimer->start(STORE_PROPERTIES_DELAY);
 }
 
 void DeviceList::unserializeDevices(const QJsonArray &devices)
@@ -69,46 +123,18 @@ void DeviceList::unserializeDevices(const QJsonArray &devices)
     for (auto it = devices.begin(); it != devices.end(); it++)
     {
         QJsonObject json = it->toObject();
-        QJsonArray exposes = json.value("exposes").toArray();
+        Device device;
 
-        if (json.contains("id") && !exposes.isEmpty())
-        {
-            QString id = json.value("id").toString();
-            Device device(new DeviceObject(id, json.value("name").toString()));
-            Endpoint endpoint(new EndpointObject(DEFAULT_ENDPOINT, device));
+        if (!byName(json.value("id").toString()).isNull() || !byName(json.value("name").toString()).isNull())
+            continue;
 
-            if (json.contains("active"))
-                device->setActive(json.value("active").toBool());
+        device = parse(json);
 
-            if (json.contains("discovery"))
-                device->setDiscovery(json.value("discovery").toBool());
+        if (device.isNull())
+            continue;
 
-            if (json.contains("cloud"))
-                device->setCloud(json.value("cloud").toBool());
-
-            device->setReal(json.value("real").toBool());
-            device->options() = json.value("options").toObject().toVariantMap();
-            device->endpoints().insert(endpoint->id(), endpoint);
-
-            for (auto it = exposes.begin(); it != exposes.end(); it++)
-            {
-                QString name = it->toString();
-                QMap <QString, QVariant> option = device->options().value(name).toMap();
-                Expose expose;
-                int type;
-
-                type = QMetaType::type(QString(m_specialExposes.contains(name) ? name : option.value("type").toString()).append("Expose").toUtf8());
-
-                expose = Expose(type ? reinterpret_cast <ExposeObject*> (QMetaType::create(type)) : new ExposeObject(name));
-                expose->setName(name);
-                expose->setParent(endpoint.data());
-
-                endpoint->exposes().append(expose);
-            }
-
-            insert(id, device);
-            count++;
-        }
+        append(device);
+        count++;
     }
 
     if (count)
@@ -119,53 +145,122 @@ void DeviceList::unserializeProperties(const QJsonObject &properties)
 {
     bool check = false;
 
-    for (auto it = begin(); it != end(); it++)
+    for (int i = 0; i < count(); i++)
     {
-        const Endpoint &endpoint = it.value()->endpoints().value(DEFAULT_ENDPOINT);
+        const Device &device = at(i);
+        const Endpoint &endpoint = device->endpoints().value(DEFAULT_ENDPOINT);
 
-        if (!properties.contains(it.value()->id()))
-            continue;
-
-        endpoint->properties() = properties.value(it.value()->id()).toObject().toVariantMap();
-        check = true;
+        if (properties.contains(device->id()))
+        {
+            endpoint->properties() = properties.value(device->id()).toObject().toVariantMap();
+            check = true;
+        }
     }
 
     if (check)
         logInfo << "Properties restored";
 }
 
-void DeviceList::writeProperties(void)
+QJsonArray DeviceList::serializeDevices(void)
+{
+    QJsonArray array;
+
+    for (int i = 0; i < count(); i++)
+    {
+        const Device &device = at(i);
+        const Endpoint &endpoint = device->endpoints().value(DEFAULT_ENDPOINT);
+        QJsonObject json;
+        QJsonArray exposes;
+
+        for (int i = 0; i < endpoint->exposes().count(); i++)
+            exposes.append(endpoint->exposes().at(i)->name());
+
+        json.insert("id", device->id());
+        json.insert("real", device->real());
+        json.insert("active", device->active());
+        json.insert("discovery", device->discovery());
+        json.insert("cloud", device->cloud());
+
+        if (device->name() != device->id())
+            json.insert("name", device->name());
+
+        if (!exposes.isEmpty())
+            json.insert("exposes", exposes);
+
+        if (!device->options().isEmpty())
+            json.insert("options", QJsonObject::fromVariantMap(device->options()));
+
+        array.append(json);
+    }
+
+    return array;
+}
+
+QJsonObject DeviceList::serializeProperties(void)
 {
     QJsonObject json;
-    QByteArray data;
-    bool check = true;
 
-    for (auto it = begin(); it != end(); it++)
+    for (int i = 0; i < count(); i++)
     {
-        const Endpoint &endpoint = it.value()->endpoints().value(DEFAULT_ENDPOINT);
+        const Device &device = at(i);
+        const Endpoint &endpoint = device->endpoints().value(DEFAULT_ENDPOINT);
 
         if (endpoint->properties().isEmpty())
             continue;
 
-        json.insert(it.value()->id(), QJsonObject::fromVariantMap(endpoint->properties()));
+        json.insert(device->id(), QJsonObject::fromVariantMap(endpoint->properties()));
     }
 
-    data = QJsonDocument(json).toJson(QJsonDocument::Compact);
+    return json;
+}
 
-    if (!m_propertiesFile.open(QFile::WriteOnly))
+bool DeviceList::writeFile(QFile &file, const QByteArray &data, bool sync)
+{
+    bool check = true;
+
+    if (!file.open(QFile::WriteOnly))
     {
-        logWarning << "Properties not stored, file" << m_propertiesFile.fileName() << "open error:" << m_propertiesFile.errorString();
-        return;
+        logWarning << "File" << file.fileName() << "open error:" << file.errorString();
+        return false;
     }
 
-    if (m_propertiesFile.write(data) != data.length())
+    if (file.write(data) != data.length())
     {
-        logWarning << "Properties not stored, file" << m_propertiesFile.fileName() << "write error";
+        logWarning << "File" << file.fileName() << "write error";
         check = false;
     }
 
-    m_propertiesFile.close();
+    file.close();
 
-    if (check)
+    if (check && sync)
         system("sync");
+
+    return check;
+}
+
+void DeviceList::writeDatabase(void)
+{
+    QJsonObject json = {{"devices", serializeDevices()}, {"timestamp", QDateTime::currentSecsSinceEpoch()}, {"version", SERVICE_VERSION}};
+
+    emit statusUpdated(json);
+
+    if (!m_sync)
+        return;
+
+    m_sync = false;
+
+    if (writeFile(m_databaseFile, QJsonDocument(json).toJson(QJsonDocument::Compact), true))
+        return;
+
+    logWarning << "Database not stored, file" << m_databaseFile.fileName() << "error:" << m_databaseFile.errorString();
+}
+
+void DeviceList::writeProperties(void)
+{
+    QJsonObject json = serializeProperties();
+
+    if (writeFile(m_propertiesFile, QJsonDocument(json).toJson(QJsonDocument::Compact)))
+        return;
+
+    logWarning << "Properties not stored, file" << m_propertiesFile.fileName() << "error:" << m_propertiesFile.errorString();
 }
