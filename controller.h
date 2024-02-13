@@ -35,8 +35,6 @@ private:
     DeviceList *m_devices;
 
     QMetaEnum m_events;
-
-    bool m_names;
     QString m_haStatus;
 
     void publishExposes(DeviceObject *device, bool remove = false);

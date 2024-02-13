@@ -8,26 +8,24 @@ Controller::Controller(const QString &configFile) : HOMEd(configFile), m_timer(n
     logInfo << "Starting version" << SERVICE_VERSION;
     logInfo << "Configuration file is" << getConfig()->fileName();
 
-    m_timer->setSingleShot(true);
+    m_haStatus = getConfig()->value("homeassistant/status", "homeassistant/status").toString();
 
     connect(m_timer, &QTimer::timeout, this, &Controller::updateProperties);
     connect(m_devices, &DeviceList::statusUpdated, this, &Controller::statusUpdated);
 
+    m_timer->setSingleShot(true);
     m_devices->init();
-
-    m_names = getConfig()->value("mqtt/names", false).toBool();
-    m_haStatus = getConfig()->value("homeassistant/status", "homeassistant/status").toString();
 }
 
 void Controller::publishExposes(DeviceObject *device, bool remove)
 {
-    device->publishExposes(this, device->id(), device->id(), remove);
+    device->publishExposes(this, device->id(), device->id(), remove); // TODO: custom unique id
 
     if (remove)
         return;
 
     if (device->active() && !device->real())
-        mqttPublish(mqttTopic("device/custom/%1").arg(m_names ? device->name() : device->id()), {{"status", "online"}}, true);
+        mqttPublish(mqttTopic("device/custom/%1").arg(device->id()), {{"status", "online"}}, true);
 
     m_timer->start(UPDATE_PROPERTIES_DELAY);
 }
@@ -39,7 +37,7 @@ void Controller::publishProperties(const Device &device)
     if (endpoint->properties().isEmpty())
         return;
 
-    mqttPublish(mqttTopic("fd/custom/%1").arg(m_names ? device->name() : device->id()), QJsonObject::fromVariantMap(endpoint->properties()), device->options().value("retain").toBool());
+    mqttPublish(mqttTopic("fd/custom/%1").arg(device->id()), QJsonObject::fromVariantMap(endpoint->properties()), device->options().value("retain").toBool());
 }
 
 void Controller::publishEvent(const QString &name, Event event)
@@ -55,7 +53,7 @@ void Controller::deviceEvent(DeviceObject *device, Event event)
     {
         case Event::aboutToRename:
         case Event::removed:
-            mqttPublish(mqttTopic("device/custom/%1").arg(m_names ? device->name() : device->id()), QJsonObject(), true);
+            mqttPublish(mqttTopic("device/custom/%1").arg(device->id()), QJsonObject(), true);
             remove = true;
             break;
 
@@ -83,7 +81,7 @@ void Controller::quit(void)
         if (!device->active() && device->real())
             continue;
 
-        mqttPublish(mqttTopic("device/custom/%1").arg(m_names ? device->name() : device->id()), {{"status", "offline"}}, true);
+        mqttPublish(mqttTopic("device/custom/%1").arg(device->id()), {{"status", "offline"}}, true);
     }
 
     HOMEd::quit();
