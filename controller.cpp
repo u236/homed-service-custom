@@ -19,7 +19,7 @@ Controller::Controller(const QString &configFile) : HOMEd(configFile), m_timer(n
 
 void Controller::publishExposes(DeviceObject *device, bool remove)
 {
-    device->publishExposes(this, device->id(), device->id(), remove); // TODO: custom unique id
+    device->publishExposes(this, device->id(), QString("custom_%1").arg(device->id()), remove);
 
     if (remove)
         return;

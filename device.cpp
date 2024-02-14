@@ -5,6 +5,8 @@
 
 DeviceList::DeviceList(QSettings *config, QObject *parent) : QObject(parent), m_databaseTimer(new QTimer(this)), m_propertiesTimer(new QTimer(this)), m_sync(false)
 {
+    ExposeObject::registerMetaTypes();
+
     m_databaseFile.setFileName(config->value("device/database", "/opt/homed-custom/database.json").toString());
     m_propertiesFile.setFileName(config->value("device/properties", "/opt/homed-custom/properties.json").toString());
 
