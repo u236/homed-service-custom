@@ -24,7 +24,7 @@ void Controller::publishExposes(DeviceObject *device, bool remove)
     if (remove)
         return;
 
-    if (device->active() && !device->real())
+    if (!device->real() && device->active())
         mqttPublish(mqttTopic("device/custom/%1").arg(device->id()), {{"status", "online"}}, true);
 
     m_timer->start(UPDATE_PROPERTIES_DELAY);
@@ -78,7 +78,7 @@ void Controller::quit(void)
     {
         const Device &device = m_devices->at(i);
 
-        if (!device->active() && device->real())
+        if (device->real() && !device->active())
             continue;
 
         mqttPublish(mqttTopic("device/custom/%1").arg(device->id()), {{"status", "offline"}}, true);
@@ -92,6 +92,7 @@ void Controller::mqttConnected(void)
     logInfo << "MQTT connected";
 
     mqttSubscribe(mqttTopic("command/custom"));
+    mqttSubscribe(mqttTopic("fd/custom/#"));
     mqttSubscribe(mqttTopic("td/custom/#"));
 
     if (getConfig()->value("homeassistant/enabled", false).toBool())
@@ -192,13 +193,37 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
         m_devices->storeDatabase(true);
         m_devices->storeProperties();
     }
+    else if (subTopic.startsWith("fd/custom/"))
+    {
+        QList <QString> list = subTopic.split('/');
+        Device device = m_devices->byName(list.value(2));
+        Endpoint endpoint;
+
+        if (device.isNull() || !device->real() || !device->active())
+            return;
+
+        endpoint = device->endpoints().value(DEFAULT_ENDPOINT);
+
+        for (auto it = json.begin(); it != json.end(); it++)
+        {
+            if (it.value().isNull())
+            {
+                endpoint->properties().remove(it.key());
+                continue;
+            }
+
+            endpoint->properties().insert(it.key(), it.value().toVariant());
+        }
+
+        m_devices->storeProperties();
+    }
     else if (subTopic.startsWith("td/custom/"))
     {
         QList <QString> list = subTopic.split('/');
         Device device = m_devices->byName(list.value(2));
         Endpoint endpoint;
 
-        if (device.isNull() || !device->active() || device->real())
+        if (device.isNull() || device->real() || !device->active())
             return;
 
         endpoint = device->endpoints().value(DEFAULT_ENDPOINT);
@@ -220,8 +245,8 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
             endpoint->properties().insert(it.key(), it.value().toVariant());
         }
 
-        publishProperties(device);
         m_devices->storeProperties();
+        publishProperties(device);
     }
     else if (topic.name() == m_haStatus)
     {
