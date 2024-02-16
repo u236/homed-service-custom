@@ -14,6 +14,8 @@ Controller::Controller(const QString &configFile) : HOMEd(configFile), m_timer(n
     connect(m_devices, &DeviceList::statusUpdated, this, &Controller::statusUpdated);
 
     m_timer->setSingleShot(true);
+
+    m_devices->setNames(getConfig()->value("mqtt/names", false).toBool());
     m_devices->init();
 }
 
@@ -25,7 +27,7 @@ void Controller::publishExposes(DeviceObject *device, bool remove)
         return;
 
     if (!device->real() && device->active())
-        mqttPublish(mqttTopic("device/custom/%1").arg(device->id()), {{"status", "online"}}, true);
+        mqttPublish(mqttTopic("device/custom/%1").arg(m_devices->names() ? device->name() : device->id()), {{"status", "online"}}, true);
 
     m_timer->start(UPDATE_PROPERTIES_DELAY);
 }
@@ -37,7 +39,7 @@ void Controller::publishProperties(const Device &device)
     if (endpoint->properties().isEmpty())
         return;
 
-    mqttPublish(mqttTopic("fd/custom/%1").arg(device->id()), QJsonObject::fromVariantMap(endpoint->properties()), device->options().value("retain").toBool());
+    mqttPublish(mqttTopic("fd/custom/%1").arg(m_devices->names() ? device->name() : device->id()), QJsonObject::fromVariantMap(endpoint->properties()), device->options().value("retain").toBool());
 }
 
 void Controller::publishEvent(const QString &name, Event event)
@@ -53,7 +55,7 @@ void Controller::deviceEvent(DeviceObject *device, Event event)
     {
         case Event::aboutToRename:
         case Event::removed:
-            mqttPublish(mqttTopic("device/custom/%1").arg(device->id()), QJsonObject(), true);
+            mqttPublish(mqttTopic("device/custom/%1").arg(m_devices->names() ? device->name() : device->id()), QJsonObject(), true);
             remove = true;
             break;
 
@@ -81,7 +83,7 @@ void Controller::quit(void)
         if (device->real() && !device->active())
             continue;
 
-        mqttPublish(mqttTopic("device/custom/%1").arg(device->id()), {{"status", "offline"}}, true);
+        mqttPublish(mqttTopic("device/custom/%1").arg(m_devices->names() ? device->name() : device->id()), {{"status", "offline"}}, true);
     }
 
     HOMEd::quit();
@@ -230,15 +232,17 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
 
         for (auto it = json.begin(); it != json.end(); it++)
         {
+            QList <QString> list = it.key().split('_');
+
             if (it.value().isNull())
             {
                 endpoint->properties().remove(it.key());
                 continue;
             }
 
-            if (it.key() == "status" && it.value() == "toggle")
+            if (list.value(0) == "status" && it.value() == "toggle")
             {
-                endpoint->properties().insert("status", endpoint->properties().value("status").toString() == "on" ? "off" : "on");
+                endpoint->properties().insert(it.key(), endpoint->properties().value(it.key()).toString() == "on" ? "off" : "on");
                 continue;
             }
 

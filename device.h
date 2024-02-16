@@ -53,6 +53,9 @@ public:
     DeviceList(QSettings *config, QObject *parent);
     ~DeviceList(void);
 
+    inline bool names(void) { return m_names; }
+    inline void setNames(bool value) { m_names = value; }
+
     void init(void);
     void storeDatabase(bool sync = false);
     void storeProperties(void);
@@ -65,7 +68,7 @@ private:
     QTimer *m_databaseTimer, *m_propertiesTimer;
 
     QFile m_databaseFile, m_propertiesFile;
-    bool m_sync;
+    bool m_names, m_sync;
 
     QList <QString> m_specialExposes;
 

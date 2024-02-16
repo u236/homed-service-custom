@@ -3,7 +3,7 @@
 #include "expose.h"
 #include "logger.h"
 
-DeviceList::DeviceList(QSettings *config, QObject *parent) : QObject(parent), m_databaseTimer(new QTimer(this)), m_propertiesTimer(new QTimer(this)), m_sync(false)
+DeviceList::DeviceList(QSettings *config, QObject *parent) : QObject(parent), m_databaseTimer(new QTimer(this)), m_propertiesTimer(new QTimer(this)), m_names(false), m_sync(false)
 {
     ExposeObject::registerMetaTypes();
 
@@ -242,7 +242,7 @@ bool DeviceList::writeFile(QFile &file, const QByteArray &data, bool sync)
 
 void DeviceList::writeDatabase(void)
 {
-    QJsonObject json = {{"devices", serializeDevices()}, {"timestamp", QDateTime::currentSecsSinceEpoch()}, {"version", SERVICE_VERSION}};
+    QJsonObject json = {{"devices", serializeDevices()}, {"names", m_names}, {"timestamp", QDateTime::currentSecsSinceEpoch()}, {"version", SERVICE_VERSION}};
 
     emit statusUpdated(json);
 
