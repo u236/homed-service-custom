@@ -91,19 +91,18 @@ void Controller::quit(void)
 
 void Controller::mqttConnected(void)
 {
-    logInfo << "MQTT connected";
+    if (getConfig()->value("homeassistant/enabled", false).toBool())
+        mqttSubscribe(m_haStatus);
 
     mqttSubscribe(mqttTopic("command/custom"));
     mqttSubscribe(mqttTopic("fd/custom/#"));
     mqttSubscribe(mqttTopic("td/custom/#"));
 
-    if (getConfig()->value("homeassistant/enabled", false).toBool())
-        mqttSubscribe(m_haStatus);
-
     for (int i = 0; i < m_devices->count(); i++)
         publishExposes(m_devices->at(i).data());
 
     m_devices->storeDatabase();
+    mqttPublishStatus();
 }
 
 void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &topic)
