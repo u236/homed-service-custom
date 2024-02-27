@@ -1,7 +1,7 @@
 #ifndef CONTROLLER_H
 #define CONTROLLER_H
 
-#define SERVICE_VERSION             "1.0.4"
+#define SERVICE_VERSION             "1.0.5"
 #define UPDATE_PROPERTIES_DELAY     1000
 
 #include <QMetaEnum>
@@ -16,6 +16,14 @@ public:
 
     Controller(const QString &configFile);
 
+    enum class Command
+    {
+        restartService,
+        updateDevice,
+        removeDevice,
+        getProperties
+    };
+
     enum class Event
     {
         idDuplicate,
@@ -27,6 +35,7 @@ public:
         removed
     };
 
+    Q_ENUM(Command)
     Q_ENUM(Event)
 
 private:
@@ -34,8 +43,9 @@ private:
     QTimer *m_timer;
     DeviceList *m_devices;
 
-    QMetaEnum m_events;
-    QString m_haStatus;
+    QMetaEnum m_commands, m_events;
+    QString m_haPrefix, m_haStatus;
+    bool m_haEnabled;
 
     void publishExposes(DeviceObject *device, bool remove = false);
     void publishProperties(const Device &device);

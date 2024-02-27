@@ -3,12 +3,14 @@
 #include "controller.h"
 #include "logger.h"
 
-Controller::Controller(const QString &configFile) : HOMEd(configFile), m_timer(new QTimer(this)), m_devices(new DeviceList(getConfig(), this)), m_events(QMetaEnum::fromType <Event> ())
+Controller::Controller(const QString &configFile) : HOMEd(configFile), m_timer(new QTimer(this)), m_devices(new DeviceList(getConfig(), this)), m_commands(QMetaEnum::fromType <Command> ()), m_events(QMetaEnum::fromType <Event> ())
 {
     logInfo << "Starting version" << SERVICE_VERSION;
     logInfo << "Configuration file is" << getConfig()->fileName();
 
+    m_haPrefix = getConfig()->value("homeassistant/prefix", "homeassistant").toString();
     m_haStatus = getConfig()->value("homeassistant/status", "homeassistant/status").toString();
+    m_haEnabled = getConfig()->value("homeassistant/enabled", false).toBool();
 
     connect(m_timer, &QTimer::timeout, this, &Controller::updateProperties);
     connect(m_devices, &DeviceList::statusUpdated, this, &Controller::statusUpdated);
@@ -21,7 +23,7 @@ Controller::Controller(const QString &configFile) : HOMEd(configFile), m_timer(n
 
 void Controller::publishExposes(DeviceObject *device, bool remove)
 {
-    device->publishExposes(this, device->id(), QString("custom_%1").arg(device->id()), remove);
+    device->publishExposes(this, device->id(), QString("%1_%2").arg(uniqueId(), device->id()), m_haPrefix, m_haEnabled, m_devices->names(), remove);
 
     if (remove)
         return;
@@ -91,15 +93,18 @@ void Controller::quit(void)
 
 void Controller::mqttConnected(void)
 {
-    if (getConfig()->value("homeassistant/enabled", false).toBool())
-        mqttSubscribe(m_haStatus);
-
     mqttSubscribe(mqttTopic("command/custom"));
     mqttSubscribe(mqttTopic("fd/custom/#"));
     mqttSubscribe(mqttTopic("td/custom/#"));
 
     for (int i = 0; i < m_devices->count(); i++)
         publishExposes(m_devices->at(i).data());
+
+    if (m_haEnabled)
+    {
+        mqttPublishDiscovery("Custom", SERVICE_VERSION, m_haPrefix);
+        mqttSubscribe(m_haStatus);
+    }
 
     m_devices->storeDatabase();
     mqttPublishStatus();
@@ -112,87 +117,103 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
 
     if (subTopic == "command/custom")
     {
-        QString action = json.value("action").toString();
-
-        if (action == "getProperties")
+        switch (static_cast <Command> (m_commands.keyToValue(json.value("action").toString().toUtf8().constData())))
         {
-            Device device = m_devices->byName(json.value("device").toString());
+            case Command::restartService:
+            {
+                logWarning << "Restart request received...";
+                mqttPublish(mqttTopic("command/custom"), QJsonObject(), true);
+                QCoreApplication::exit(EXIT_RESTART);
+                break;
+            }
 
-            if (!device.isNull() && device->active())
-                publishProperties(device);
+            case Command::updateDevice:
+            {
+                int index = -1;
+                QJsonObject data = json.value("data").toObject();
+                QString id = data.value("id").toString().trimmed(), name = data.value("name").toString().trimmed();
+                Device device = m_devices->byName(json.value("device").toString(), &index), other = m_devices->byName(id);
+                QMap <QString, QVariant> properies;
 
-            return;
+                if (device != other && !other.isNull())
+                {
+                    logWarning << "Device" << id << "update failed, identifier already in use";
+                    publishEvent(name, Event::idDuplicate);
+                    break;
+                }
+
+                other = m_devices->byName(name);
+
+                if (device != other && !other.isNull())
+                {
+                    logWarning << "Device" << name << "update failed, name already in use";
+                    publishEvent(name, Event::nameDuplicate);
+                    break;
+                }
+
+                if (!device.isNull())
+                {
+                    if (device->id() != id || device->name() != name)
+                        deviceEvent(device.data(), Event::aboutToRename);
+
+                    properies = device->endpoints().value(DEFAULT_ENDPOINT)->properties();
+                }
+
+                device = m_devices->parse(data);
+
+                if (device.isNull())
+                {
+                    logWarning << "Device" << name << "update failed, data is incomplete";
+                    publishEvent(name, Event::incompleteData);
+                    break;
+                }
+
+                if (index >= 0)
+                {
+                    device->endpoints().value(DEFAULT_ENDPOINT)->properties() = properies;
+                    m_devices->replace(index, device);
+                    logInfo << "Device" << device->name() << "successfully updated";
+                    deviceEvent(device.data(), Event::updated);
+                }
+                else
+                {
+                    m_devices->append(device);
+                    logInfo << "Device" << device->name() << "successfully added";
+                    deviceEvent(device.data(), Event::added);
+                }
+
+                m_devices->storeDatabase(true);
+                m_devices->storeProperties();
+                break;
+            }
+
+            case Command::removeDevice:
+            {
+                int index = -1;
+                const Device &device = m_devices->byName(json.value("device").toString(), &index);
+
+                if (index >= 0)
+                {
+                    m_devices->removeAt(index);
+                    logInfo << "Device" << device->name() << "removed";
+                    deviceEvent(device.data(), Event::removed);
+                    m_devices->storeDatabase(true);
+                    m_devices->storeProperties();
+                }
+
+                break;
+            }
+
+            case Command::getProperties:
+            {
+                Device device = m_devices->byName(json.value("device").toString());
+
+                if (!device.isNull() && device->active())
+                    publishProperties(device);
+
+                break;
+            }
         }
-        else if (action == "updateDevice")
-        {
-            int index = -1;
-            QJsonObject data = json.value("data").toObject();
-            QString id = data.value("id").toString().trimmed(), name = data.value("name").toString().trimmed();
-            Device device = m_devices->byName(json.value("device").toString(), &index), other = m_devices->byName(id);
-            QMap <QString, QVariant> properies;
-
-            if (device != other && !other.isNull())
-            {
-                logWarning << "Device" << id << "update failed, identifier already in use";
-                publishEvent(name, Event::idDuplicate);
-                return;
-            }
-
-            other = m_devices->byName(name);
-
-            if (device != other && !other.isNull())
-            {
-                logWarning << "Device" << name << "update failed, name already in use";
-                publishEvent(name, Event::nameDuplicate);
-                return;
-            }
-
-            if (!device.isNull())
-            {
-                if (device->id() != id || device->name() != name)
-                    deviceEvent(device.data(), Event::aboutToRename);
-
-                properies = device->endpoints().value(DEFAULT_ENDPOINT)->properties();
-            }
-
-            device = m_devices->parse(data);
-
-            if (device.isNull())
-            {
-                logWarning << "Device" << name << "update failed, data is incomplete";
-                publishEvent(name, Event::incompleteData);
-                return;
-            }
-
-            if (index < 0)
-            {
-                m_devices->append(device);
-                logInfo << "Device" << device->name() << "successfully added";
-                deviceEvent(device.data(), Event::added);
-            }
-            else
-            {
-                device->endpoints().value(DEFAULT_ENDPOINT)->properties() = properies;
-                m_devices->replace(index, device);
-                logInfo << "Device" << device->name() << "successfully updated";
-                deviceEvent(device.data(), Event::updated);
-            }
-        }
-        else if (action == "removeDevice")
-        {
-            int index = -1;
-            const Device &device = m_devices->byName(json.value("device").toString(), &index);
-
-            if (index < 0)
-                return;
-
-            m_devices->removeAt(index);
-            logInfo << "Device" << device->name() << "removed";
-            deviceEvent(device.data(), Event::removed);
-        }
-
-        m_devices->storeDatabase(true);
-        m_devices->storeProperties();
     }
     else if (subTopic.startsWith("fd/custom/"))
     {
@@ -262,7 +283,7 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
 
 void Controller::updateProperties(void)
 {
-    for (int i = 0; i <  m_devices->count(); i++)
+    for (int i = 0; i < m_devices->count(); i++)
     {
         const Device &device = m_devices->at(i);
 
