@@ -64,6 +64,7 @@ Device DeviceList::parse(const QJsonObject &json)
         if (json.contains("cloud"))
             device->setCloud(json.value("cloud").toBool());
 
+        device->setNote(json.value("note").toString());
         device->setReal(json.value("real").toBool());
         device->options() = json.value("options").toObject().toVariantMap();
         device->endpoints().insert(endpoint->id(), endpoint);
@@ -185,6 +186,9 @@ QJsonArray DeviceList::serializeDevices(void)
 
         if (device->name() != device->id())
             json.insert("name", device->name());
+
+        if (!device->note().isEmpty())
+            json.insert("note", device->note());
 
         if (!exposes.isEmpty())
             json.insert("exposes", exposes);
