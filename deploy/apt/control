@@ -2,7 +2,7 @@ Package: homed-custom
 Version:
 Architecture:
 Maintainer: u236
-Depends: homed-qt
+Depends: homed-common, homed-qt
 Section: misc
 Priority: standard
 Description: HOMEd Custom Service
