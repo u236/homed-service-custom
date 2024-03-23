@@ -70,6 +70,7 @@ private:
     QFile m_databaseFile, m_propertiesFile;
     bool m_names, m_sync;
 
+    QMap <QString, QVariant> m_exposeOptions;
     QList <QString> m_specialExposes;
 
     void unserializeDevices(const QJsonArray &devices);

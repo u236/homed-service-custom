@@ -5,10 +5,18 @@
 
 DeviceList::DeviceList(QSettings *config, QObject *parent) : QObject(parent), m_databaseTimer(new QTimer(this)), m_propertiesTimer(new QTimer(this)), m_names(false), m_sync(false)
 {
+    QFile file("/usr/share/homed-common/expose.json");
+
     ExposeObject::registerMetaTypes();
 
     m_databaseFile.setFileName(config->value("device/database", "/opt/homed-custom/database.json").toString());
     m_propertiesFile.setFileName(config->value("device/properties", "/opt/homed-custom/properties.json").toString());
+
+    if (file.open(QFile::ReadOnly))
+    {
+        m_exposeOptions = QJsonDocument::fromJson(file.readAll()).object().toVariantMap();
+        file.close();
+    }
 
     m_specialExposes = {"light", "switch", "cover", "lock", "thermostat"};
 
@@ -72,9 +80,15 @@ Device DeviceList::parse(const QJsonObject &json)
         for (auto it = exposes.begin(); it != exposes.end(); it++)
         {
             QString name = it->toString();
-            QMap <QString, QVariant> option = device->options().value(name).toMap();
+            QMap <QString, QVariant> option = m_exposeOptions.value(name.split('_').value(0)).toMap();
             Expose expose;
             int type;
+
+            if (device->options().contains(name))
+            {
+                option.insert(device->options().value(name).toMap());
+                device->options().insert(name, option);
+            }
 
             type = QMetaType::type(QString(m_specialExposes.contains(name) ? name : option.value("type").toString()).append("Expose").toUtf8());
 
@@ -172,8 +186,22 @@ QJsonArray DeviceList::serializeDevices(void)
     {
         const Device &device = at(i);
         const Endpoint &endpoint = device->endpoints().value(DEFAULT_ENDPOINT);
-        QJsonObject json;
+        QJsonObject json, options;
         QJsonArray exposes;
+
+        for (auto it = device->options().begin(); it != device->options().end(); it++)
+        {
+            QMap <QString, QVariant> option = m_exposeOptions.value(it.key().split('_').value(0)).toMap(), map = it.value().toMap();
+
+            for (auto it = option.begin(); it != option.end(); it++)
+                if (map.value(it.key()) == it.value())
+                    map.remove(it.key());
+
+            if (map.isEmpty())
+                continue;
+
+            options.insert(it.key(), QJsonObject::fromVariantMap(map));
+        }
 
         for (int i = 0; i < endpoint->exposes().count(); i++)
             exposes.append(endpoint->exposes().at(i)->name());
@@ -193,8 +221,8 @@ QJsonArray DeviceList::serializeDevices(void)
         if (!exposes.isEmpty())
             json.insert("exposes", exposes);
 
-        if (!device->options().isEmpty())
-            json.insert("options", QJsonObject::fromVariantMap(device->options()));
+        if (!options.isEmpty())
+            json.insert("options", options);
 
         array.append(json);
     }

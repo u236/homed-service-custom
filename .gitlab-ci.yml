@@ -1,6 +1,7 @@
 variables:
   NAME: homed-custom
   PACKAGE_EXTRA: mkdir -p deploy/data/opt/homed-custom
+  DOCKER_EXTRA: cp -r ../homed-common/deploy/data/usr/share/homed-common deploy/docker/share
 
 include:
 - project: 'homed/services/homed-common'
