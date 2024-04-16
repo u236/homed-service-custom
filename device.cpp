@@ -85,13 +85,12 @@ Device DeviceList::parse(const QJsonObject &json)
             int type;
 
             if (device->options().contains(name))
-            {
                 option.insert(device->options().value(name).toMap());
+
+            if (!option.isEmpty())
                 device->options().insert(name, option);
-            }
 
             type = QMetaType::type(QString(m_specialExposes.contains(name) ? name : option.value("type").toString()).append("Expose").toUtf8());
-
             expose = Expose(type ? reinterpret_cast <ExposeObject*> (QMetaType::create(type)) : new ExposeObject(name));
             expose->setName(name);
             expose->setParent(endpoint.data());
@@ -191,7 +190,17 @@ QJsonArray DeviceList::serializeDevices(void)
 
         for (auto it = device->options().begin(); it != device->options().end(); it++)
         {
-            QMap <QString, QVariant> option = m_exposeOptions.value(it.key().split('_').value(0)).toMap(), map = it.value().toMap();
+            QString expose = it.key().split('_').value(0);
+            QMap <QString, QVariant> option, map;
+
+            if (it.value().type() != QVariant::Map)
+            {
+                options.insert(it.key(), QJsonValue::fromVariant(it.value()));
+                continue;
+            }
+
+            option = m_exposeOptions.value(expose).toMap();
+            map = it.value().toMap();
 
             for (auto it = option.begin(); it != option.end(); it++)
                 if (map.value(it.key()) == it.value())
