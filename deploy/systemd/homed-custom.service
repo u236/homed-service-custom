@@ -3,7 +3,7 @@ Description=HOMEd Custom Service
 
 [Service]
 ExecStart=/usr/bin/homed-custom
-Environment=LD_LIBRARY_PATH=/lib
+Environment=LD_LIBRARY_PATH=/usr/lib
 KillSignal=SIGTERM
 Restart=on-failure
 
