@@ -5,7 +5,7 @@
 
 DeviceList::DeviceList(QSettings *config, QObject *parent) : QObject(parent), m_databaseTimer(new QTimer(this)), m_propertiesTimer(new QTimer(this)), m_names(false), m_sync(false)
 {
-    QFile file("/usr/share/homed-common/expose.json");
+    QFile file(config->value("device/expose", "/usr/share/homed-common/expose.json").toString());
 
     ExposeObject::registerMetaTypes();
 
