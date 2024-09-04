@@ -79,20 +79,20 @@ Device DeviceList::parse(const QJsonObject &json)
 
         for (auto it = exposes.begin(); it != exposes.end(); it++)
         {
-            QString name = it->toString();
-            QMap <QString, QVariant> option = m_exposeOptions.value(name.split('_').value(0)).toMap();
+            QString exposeName = it->toString(), itemName = exposeName.split('_').value(0);
+            QMap <QString, QVariant> option = m_exposeOptions.value(itemName).toMap();
             Expose expose;
             int type;
 
-            if (device->options().contains(name))
-                option.insert(device->options().value(name).toMap());
+            if (device->options().contains(exposeName))
+                option.insert(device->options().value(exposeName).toMap());
 
             if (!option.isEmpty())
-                device->options().insert(name, option);
+                device->options().insert(exposeName, option);
 
-            type = QMetaType::type(QString(m_specialExposes.contains(name) ? name : option.value("type").toString()).append("Expose").toUtf8());
-            expose = Expose(type ? reinterpret_cast <ExposeObject*> (QMetaType::create(type)) : new ExposeObject(name));
-            expose->setName(name);
+            type = QMetaType::type(QString(m_specialExposes.contains(itemName) ? itemName : option.value("type").toString()).append("Expose").toUtf8());
+            expose = Expose(type ? reinterpret_cast <ExposeObject*> (QMetaType::create(type)) : new ExposeObject(exposeName));
+            expose->setName(exposeName);
             expose->setParent(endpoint.data());
 
             endpoint->exposes().append(expose);
