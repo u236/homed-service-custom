@@ -14,6 +14,7 @@ Controller::Controller(const QString &configFile) : HOMEd(configFile), m_timer(n
 
     connect(m_timer, &QTimer::timeout, this, &Controller::updateProperties);
     connect(m_devices, &DeviceList::statusUpdated, this, &Controller::statusUpdated);
+    connect(m_devices, &DeviceList::devicetUpdated, this, &Controller::devicetUpdated);
 
     m_timer->setSingleShot(true);
 
@@ -34,7 +35,7 @@ void Controller::publishExposes(DeviceObject *device, bool remove)
     m_timer->start(UPDATE_PROPERTIES_DELAY);
 }
 
-void Controller::publishProperties(const Device &device)
+void Controller::publishProperties(DeviceObject *device)
 {
     const Endpoint &endpoint = device->endpoints().value(DEFAULT_ENDPOINT);
 
@@ -209,7 +210,7 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
                 Device device = m_devices->byName(json.value("device").toString());
 
                 if (!device.isNull() && device->active())
-                    publishProperties(device);
+                    publishProperties(device.data());
 
                 break;
             }
@@ -269,8 +270,8 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
             endpoint->properties().insert(it.key(), it.value().toVariant());
         }
 
+        device->timer()->start(UPDATE_DEVICE_DELAY);
         m_devices->storeProperties();
-        publishProperties(device);
     }
     else if (topic.name() == m_haStatus)
     {
@@ -290,11 +291,16 @@ void Controller::updateProperties(void)
         if (!device->active())
             continue;
 
-        publishProperties(device);
+        publishProperties(device.data());
     }
 }
 
 void Controller::statusUpdated(const QJsonObject &json)
 {
     mqttPublish(mqttTopic("status/custom"), json, true);
+}
+
+void Controller::devicetUpdated(DeviceObject *device)
+{
+    publishProperties(device);
 }

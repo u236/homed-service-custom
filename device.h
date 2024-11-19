@@ -30,8 +30,9 @@ class DeviceObject : public AbstractDeviceObject
 public:
 
     DeviceObject(const QString &id, const QString name = QString()) :
-        AbstractDeviceObject(name.isEmpty() ? id : name), m_id(id), m_real(false) {}
+        AbstractDeviceObject(name.isEmpty() ? id : name), m_timer(new QTimer(this)), m_id(id), m_real(false) {}
 
+    inline QTimer *timer(void) { return m_timer; }
     inline QString id(void) { return m_id; }
 
     inline bool real(void) { return m_real; }
@@ -39,6 +40,7 @@ public:
 
 private:
 
+    QTimer *m_timer;
     QString m_id;
     bool m_real;
 
@@ -85,10 +87,12 @@ private slots:
 
     void writeDatabase(void);
     void writeProperties(void);
+    void deviceTimeout(void);
 
 signals:
 
     void statusUpdated(const QJsonObject &json);
+    void devicetUpdated(DeviceObject *device);
 
 };
 

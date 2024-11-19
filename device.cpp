@@ -98,6 +98,12 @@ Device DeviceList::parse(const QJsonObject &json)
 
             endpoint->exposes().append(expose);
         }
+
+        if (!device->real())
+        {
+            connect(device->timer(), &QTimer::timeout, this, &DeviceList::deviceTimeout);
+            device->timer()->setSingleShot(true);
+        }
     }
 
     return device;
@@ -307,4 +313,9 @@ void DeviceList::writeProperties(void)
         return;
 
     logWarning << "Properties not stored, file" << m_propertiesFile.fileName() << "error:" << m_propertiesFile.errorString();
+}
+
+void DeviceList::deviceTimeout(void)
+{
+    emit devicetUpdated(reinterpret_cast <DeviceObject*> (sender()->parent()));
 }

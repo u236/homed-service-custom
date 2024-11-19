@@ -1,7 +1,8 @@
 #ifndef CONTROLLER_H
 #define CONTROLLER_H
 
-#define SERVICE_VERSION             "1.0.9"
+#define SERVICE_VERSION             "1.0.10"
+#define UPDATE_DEVICE_DELAY         100
 #define UPDATE_PROPERTIES_DELAY     1000
 
 #include <QMetaEnum>
@@ -48,7 +49,7 @@ private:
     bool m_haEnabled;
 
     void publishExposes(DeviceObject *device, bool remove = false);
-    void publishProperties(const Device &device);
+    void publishProperties(DeviceObject *device);
     void publishEvent(const QString &name, Event event);
     void deviceEvent(DeviceObject *device, Event event);
 
@@ -63,6 +64,7 @@ private slots:
 
     void updateProperties(void);
     void statusUpdated(const QJsonObject &json);
+    void devicetUpdated(DeviceObject *device);
 
 };
 
