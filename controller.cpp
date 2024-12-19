@@ -138,7 +138,7 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
 
                 if (device != other && !other.isNull())
                 {
-                    logWarning << "Device" << id << "update failed, identifier already in use";
+                    logWarning << device << "update failed, identifier already in use";
                     publishEvent(name, Event::idDuplicate);
                     break;
                 }
@@ -147,7 +147,7 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
 
                 if (device != other && !other.isNull())
                 {
-                    logWarning << "Device" << name << "update failed, name already in use";
+                    logWarning << device << "update failed, name already in use";
                     publishEvent(name, Event::nameDuplicate);
                     break;
                 }
@@ -164,7 +164,7 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
 
                 if (device.isNull())
                 {
-                    logWarning << "Device" << name << "update failed, data is incomplete";
+                    logWarning << device << "update failed, data is incomplete";
                     publishEvent(name, Event::incompleteData);
                     break;
                 }
@@ -173,13 +173,13 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
                 {
                     device->endpoints().value(DEFAULT_ENDPOINT)->properties() = properies;
                     m_devices->replace(index, device);
-                    logInfo << "Device" << device->name() << "successfully updated";
+                    logInfo << device << "successfully updated";
                     deviceEvent(device.data(), Event::updated);
                 }
                 else
                 {
                     m_devices->append(device);
-                    logInfo << "Device" << device->name() << "successfully added";
+                    logInfo << device << "successfully added";
                     deviceEvent(device.data(), Event::added);
                 }
 
@@ -196,7 +196,7 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
                 if (index >= 0)
                 {
                     m_devices->removeAt(index);
-                    logInfo << "Device" << device->name() << "removed";
+                    logInfo << device << "removed";
                     deviceEvent(device.data(), Event::removed);
                     m_devices->storeDatabase(true);
                     m_devices->storeProperties();
