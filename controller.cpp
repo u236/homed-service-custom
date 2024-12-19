@@ -173,13 +173,13 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
                 {
                     device->endpoints().value(DEFAULT_ENDPOINT)->properties() = properies;
                     m_devices->replace(index, device);
-                    logInfo << "Device" << device->name() << "successfully updated";
+                    logInfo << device << "successfully updated";
                     deviceEvent(device.data(), Event::updated);
                 }
                 else
                 {
                     m_devices->append(device);
-                    logInfo << "Device" << device->name() << "successfully added";
+                    logInfo << device << "successfully added";
                     deviceEvent(device.data(), Event::added);
                 }
 
@@ -196,7 +196,7 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
                 if (index >= 0)
                 {
                     m_devices->removeAt(index);
-                    logInfo << "Device" << device->name() << "removed";
+                    logInfo << device << "removed";
                     deviceEvent(device.data(), Event::removed);
                     m_devices->storeDatabase(true);
                     m_devices->storeProperties();
