@@ -15,8 +15,6 @@ class Controller : public HOMEd
 
 public:
 
-    Controller(const QString &configFile);
-
     enum class Command
     {
         restartService,
@@ -35,6 +33,8 @@ public:
         updated,
         removed
     };
+
+    Controller(const QString &configFile);
 
     Q_ENUM(Command)
     Q_ENUM(Event)
