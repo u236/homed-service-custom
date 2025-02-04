@@ -264,7 +264,7 @@ QJsonObject DeviceList::serializeProperties(void)
     return json;
 }
 
-bool DeviceList::writeFile(QFile &file, const QByteArray &data, bool sync)
+bool DeviceList::writeFile(QFile &file, const QByteArray &data)
 {
     bool check = true;
 
@@ -282,7 +282,7 @@ bool DeviceList::writeFile(QFile &file, const QByteArray &data, bool sync)
 
     file.close();
 
-    if (check && sync)
+    if (check)
         system("sync");
 
     return check;
@@ -299,7 +299,7 @@ void DeviceList::writeDatabase(void)
 
     m_sync = false;
 
-    if (writeFile(m_databaseFile, QJsonDocument(json).toJson(QJsonDocument::Compact), true))
+    if (writeFile(m_databaseFile, QJsonDocument(json).toJson(QJsonDocument::Compact)))
         return;
 
     logWarning << "Database not stored, file" << m_databaseFile.fileName() << "error:" << m_databaseFile.errorString();

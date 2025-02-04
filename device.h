@@ -81,7 +81,7 @@ private:
     QJsonArray serializeDevices(void);
     QJsonObject serializeProperties(void);
 
-    bool writeFile(QFile &file, const QByteArray &data, bool sync = false);
+    bool writeFile(QFile &file, const QByteArray &data);
 
 private slots:
 
