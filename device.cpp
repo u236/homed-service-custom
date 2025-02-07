@@ -86,6 +86,8 @@ Device DeviceList::parse(const QJsonObject &json)
 
             if (device->options().contains(exposeName))
                 option.insert(device->options().value(exposeName).toMap());
+            else if (device->options().contains(itemName))
+                option.insert(device->options().value(itemName).toMap());
 
             if (!option.isEmpty())
                 device->options().insert(exposeName, option);
