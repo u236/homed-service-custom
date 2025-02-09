@@ -16,7 +16,7 @@ public:
     EndpointObject(quint8 id, Device device) :
         AbstractEndpointObject(id, device) {}
 
-    inline  QMap <QString, QVariant> &properties(void) { return m_properties; }
+    inline QMap <QString, QVariant> &properties(void) { return m_properties; }
 
 private:
 
