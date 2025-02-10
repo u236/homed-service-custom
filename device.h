@@ -8,6 +8,28 @@
 #include <QFile>
 #include "endpoint.h"
 
+class BindingObject;
+typedef QSharedPointer <BindingObject> Binding;
+
+class BindingObject
+{
+
+public:
+
+    BindingObject(const QString &inTopic, const QString &inPattern, const QString &outTopic, const QString &outPattern) :
+        m_inTopic(inTopic), m_inPattern(inPattern), m_outTopic(outTopic), m_outPattern(outPattern) {}
+
+    inline QString inTopic(void) { return m_inTopic; }
+    inline QString inPattern(void) { return m_inPattern; }
+    inline QString outTopic(void) { return m_outTopic; }
+    inline QString outPattern(void) { return m_outPattern; }
+
+private:
+
+    QString m_inTopic, m_inPattern, m_outTopic, m_outPattern;
+
+};
+
 class EndpointObject : public AbstractEndpointObject
 {
 
@@ -16,10 +38,12 @@ public:
     EndpointObject(quint8 id, Device device) :
         AbstractEndpointObject(id, device) {}
 
+    inline QMap <QString, Binding> &bindings(void) { return m_bindings; }
     inline QMap <QString, QVariant> &properties(void) { return m_properties; }
 
 private:
 
+    QMap <QString, Binding> m_bindings;
     QMap <QString, QVariant> m_properties;
 
 };
@@ -93,6 +117,7 @@ signals:
 
     void statusUpdated(const QJsonObject &json);
     void devicetUpdated(DeviceObject *device);
+    void addSubscription(const QString &topic);
 
 };
 

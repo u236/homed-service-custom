@@ -1,7 +1,7 @@
 #ifndef CONTROLLER_H
 #define CONTROLLER_H
 
-#define SERVICE_VERSION             "1.0.11"
+#define SERVICE_VERSION             "2.0.0"
 #define UPDATE_DEVICE_DELAY         100
 #define UPDATE_PROPERTIES_DELAY     1000
 
@@ -48,10 +48,14 @@ private:
     QString m_haPrefix, m_haStatus;
     bool m_haEnabled;
 
+    QList <QString> m_subscriptions;
+
     void publishExposes(DeviceObject *device, bool remove = false);
     void publishProperties(DeviceObject *device);
     void publishEvent(const QString &name, Event event);
     void deviceEvent(DeviceObject *device, Event event);
+
+    QVariant parsePattern(QString string, const QVariant &data);
 
 public slots:
 
@@ -63,8 +67,10 @@ private slots:
     void mqttReceived(const QByteArray &message, const QMqttTopicName &topic) override;
 
     void updateProperties(void);
+
     void statusUpdated(const QJsonObject &json);
     void devicetUpdated(DeviceObject *device);
+    void addSubscription(const QString &topic);
 
 };
 

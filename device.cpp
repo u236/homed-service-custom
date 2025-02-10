@@ -55,6 +55,7 @@ Device DeviceList::parse(const QJsonObject &json)
 {
     QString id = json.value("id").toString();
     QJsonArray exposes = json.value("exposes").toArray();
+    QJsonObject bindings = json.value("bindings").toObject();
     Device device;
     Endpoint endpoint;
 
@@ -101,11 +102,22 @@ Device DeviceList::parse(const QJsonObject &json)
             endpoint->exposes().append(expose);
         }
 
-        if (!device->real())
+        for (auto it = bindings.begin(); it != bindings.end(); it++)
         {
-            connect(device->timer(), &QTimer::timeout, this, &DeviceList::deviceTimeout);
-            device->timer()->setSingleShot(true);
+            QJsonObject item = it.value().toObject();
+            Binding binding(new BindingObject(item.value("inTopic").toString(), item.value("inPattern").toString(), item.value("outTopic").toString(), item.value("outPattern").toString()));
+
+            if (binding->inTopic().isEmpty() && binding->outTopic().isEmpty())
+                continue;
+
+            if (!binding->inTopic().isEmpty())
+                emit addSubscription(binding->inTopic());
+
+            endpoint->bindings().insert(it.key(), binding);
         }
+
+        connect(device->timer(), &QTimer::timeout, this, &DeviceList::deviceTimeout);
+        device->timer()->setSingleShot(true);
     }
 
     return device;
@@ -194,7 +206,7 @@ QJsonArray DeviceList::serializeDevices(void)
     {
         const Device &device = at(i);
         const Endpoint &endpoint = device->endpoints().value(DEFAULT_ENDPOINT);
-        QJsonObject json, options;
+        QJsonObject json, options, bindings;
         QJsonArray exposes;
 
         for (auto it = device->options().begin(); it != device->options().end(); it++)
@@ -221,6 +233,32 @@ QJsonArray DeviceList::serializeDevices(void)
             options.insert(it.key(), QJsonObject::fromVariantMap(map));
         }
 
+        for (auto it = endpoint->bindings().begin(); it != endpoint->bindings().end(); it++)
+        {
+            QJsonObject binding;
+
+            if (!it.value()->inTopic().isEmpty())
+            {
+                if (!it.value()->inPattern().isEmpty())
+                    binding.insert("inPattern", it.value()->inPattern());
+
+                binding.insert("inTopic", it.value()->inTopic());
+            }
+
+            if (!it.value()->outTopic().isEmpty())
+            {
+                if (!it.value()->outPattern().isEmpty())
+                    binding.insert("outPattern", it.value()->outPattern());
+
+                binding.insert("outTopic", it.value()->outTopic());
+            }
+
+            if (binding.isEmpty())
+                continue;
+
+            bindings.insert(it.key(), binding);
+        }
+
         for (int i = 0; i < endpoint->exposes().count(); i++)
             exposes.append(endpoint->exposes().at(i)->name());
 
@@ -241,6 +279,9 @@ QJsonArray DeviceList::serializeDevices(void)
 
         if (!options.isEmpty())
             json.insert("options", options);
+
+        if (!bindings.isEmpty())
+            json.insert("bindings", bindings);
 
         array.append(json);
     }

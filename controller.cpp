@@ -2,6 +2,7 @@
 #include <QMimeDatabase>
 #include "controller.h"
 #include "logger.h"
+#include "parser.h"
 
 Controller::Controller(const QString &configFile) : HOMEd(configFile), m_timer(new QTimer(this)), m_devices(new DeviceList(getConfig(), this)), m_commands(QMetaEnum::fromType <Command> ()), m_events(QMetaEnum::fromType <Event> ())
 {
@@ -15,6 +16,7 @@ Controller::Controller(const QString &configFile) : HOMEd(configFile), m_timer(n
     connect(m_timer, &QTimer::timeout, this, &Controller::updateProperties);
     connect(m_devices, &DeviceList::statusUpdated, this, &Controller::statusUpdated);
     connect(m_devices, &DeviceList::devicetUpdated, this, &Controller::devicetUpdated);
+    connect(m_devices, &DeviceList::addSubscription, this, &Controller::addSubscription);
 
     m_timer->setSingleShot(true);
 
@@ -29,7 +31,7 @@ void Controller::publishExposes(DeviceObject *device, bool remove)
     if (remove)
         return;
 
-    if (!device->real() && device->active())
+    if (device->active()) // TODO: real devices availability
         mqttPublish(mqttTopic("device/custom/%1").arg(m_devices->names() ? device->name() : device->id()), {{"status", "online"}}, true);
 
     m_timer->start(UPDATE_PROPERTIES_DELAY);
@@ -77,6 +79,54 @@ void Controller::deviceEvent(DeviceObject *device, Event event)
     publishEvent(device->name(), event);
 }
 
+QVariant Controller::parsePattern(QString string, const QVariant &data)
+{
+    QRegExp replace("\\{\\{[^\\{\\}]*\\}\\}"), split("\\s+(?=(?:[^']*['][^']*['])*[^']*$)");
+    int position;
+
+    if (string.isEmpty())
+        return Parser::stringValue(data.toString());
+
+    while ((position = replace.indexIn(string)) != -1)
+    {
+        QString capture = replace.cap(), value = capture.mid(2, capture.length() - 4).trimmed();
+        QList list = value.split(split);
+
+        for (int i = 0; i < list.count(); i++)
+        {
+            QString item = list.at(i);
+
+            if (item.startsWith('\'') && item.endsWith('\''))
+                list.replace(i, item.mid(1, item.length() - 2));
+            else if (item.startsWith("json."))
+                list.replace(i, Parser::jsonValue(QJsonDocument::fromJson(data.toString().toUtf8()).object(), item.split('.').mid(1).join('.')).toString());
+            else if (item == "value")
+                list.replace(i, data.toString());
+        }
+
+        while (list.count() >= 7)
+        {
+            QList <QString> tail = list.mid(7);
+            int index;
+
+            if (list.at(1) != "if" || list.at(5) != "else")
+                break;
+
+            index = list.at(3) == "==" ? (list.at(2) == list.at(4) ? 0 : 6) : (list.at(2) != list.at(4) ? 0 : 6);
+            list =  QList <QString> {list.at(index)};
+
+            if (!index)
+                break;
+
+            list.append(tail);
+        }
+
+        string.replace(position, capture.length(), list.join(0x20));
+    }
+
+    return Parser::stringValue(string);
+}
+
 void Controller::quit(void)
 {
     for (int i = 0; i < m_devices->count(); i++)
@@ -98,14 +148,20 @@ void Controller::mqttConnected(void)
     mqttSubscribe(mqttTopic("fd/custom/#"));
     mqttSubscribe(mqttTopic("td/custom/#"));
 
-    for (int i = 0; i < m_devices->count(); i++)
-        publishExposes(m_devices->at(i).data());
+    for (int i = 0; i < m_subscriptions.count(); i++)
+    {
+        logInfo << "MQTT subscribed to" << m_subscriptions.at(i);
+        mqttSubscribe(m_subscriptions.at(i));
+    }
 
     if (m_haEnabled)
     {
         mqttPublishDiscovery("Custom", SERVICE_VERSION, m_haPrefix);
         mqttSubscribe(m_haStatus);
     }
+
+    for (int i = 0; i < m_devices->count(); i++)
+        publishExposes(m_devices->at(i).data());
 
     m_devices->storeDatabase();
     mqttPublishStatus();
@@ -115,6 +171,35 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
 {
     QString subTopic = topic.name().replace(mqttTopic(), QString());
     QJsonObject json = QJsonDocument::fromJson(message).object();
+
+    if (m_subscriptions.contains(topic.name()))
+    {
+        for (int i = 0; i < m_devices->count(); i++)
+        {
+            const Device &device = m_devices->at(i);
+            const Endpoint &endpoint = device->endpoints().value(DEFAULT_ENDPOINT);
+
+            if (!device->real())
+                continue;
+
+            for (auto it = endpoint->bindings().begin(); it != endpoint->bindings().end(); it++)
+            {
+                QVariant value;
+
+                if (it.value()->inTopic() != topic.name())
+                    continue;
+
+                value = parsePattern(it.value()->inPattern(), message);
+
+                if (!value.isValid() || endpoint->properties().value(it.key()) == value)
+                    continue;
+
+                endpoint->properties().insert(it.key(), value);
+                device->timer()->start(UPDATE_DEVICE_DELAY);
+                m_devices->storeProperties();
+            }
+        }
+    }
 
     if (subTopic == "command/custom")
     {
@@ -227,6 +312,9 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
 
         endpoint = device->endpoints().value(DEFAULT_ENDPOINT);
 
+        if (!endpoint->bindings().isEmpty())
+            return;
+
         for (auto it = json.begin(); it != json.end(); it++)
         {
             if (it.value().isNull())
@@ -246,28 +334,35 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
         Device device = m_devices->byName(list.value(2));
         Endpoint endpoint;
 
-        if (device.isNull() || device->real() || !device->active())
+        if (device.isNull() || !device->active())
             return;
 
         endpoint = device->endpoints().value(DEFAULT_ENDPOINT);
 
         for (auto it = json.begin(); it != json.end(); it++)
         {
-            QList <QString> list = it.key().split('_');
+            QVariant value = it.value().toVariant();
 
-            if (it.value().isNull())
+            if (it.key().split('_').value(0) == "status" && value.toString() == "toggle")
+                value = endpoint->properties().value(it.key()).toString() == "on" ? "off" : "on";
+
+            if (device->real())
+            {
+                const Binding &binding = endpoint->bindings().value(it.key());
+
+                if (!binding.isNull() && !binding->outTopic().isEmpty())
+                    mqttPublishString(binding->outTopic(), parsePattern(binding->outPattern(), value).toString());
+
+                continue;
+            }
+
+            if (value.isNull())
             {
                 endpoint->properties().remove(it.key());
                 continue;
             }
 
-            if (list.value(0) == "status" && it.value() == "toggle")
-            {
-                endpoint->properties().insert(it.key(), endpoint->properties().value(it.key()).toString() == "on" ? "off" : "on");
-                continue;
-            }
-
-            endpoint->properties().insert(it.key(), it.value().toVariant());
+            endpoint->properties().insert(it.key(), value);
         }
 
         device->timer()->start(UPDATE_DEVICE_DELAY);
@@ -303,4 +398,18 @@ void Controller::statusUpdated(const QJsonObject &json)
 void Controller::devicetUpdated(DeviceObject *device)
 {
     publishProperties(device);
+}
+
+void Controller::addSubscription(const QString &topic)
+{
+    if (m_subscriptions.contains(topic))
+        return;
+
+    m_subscriptions.append(topic);
+
+    if (mqttStatus())
+    {
+        logInfo << "MQTT subscribed to" << topic;
+        mqttSubscribe(topic);
+    }
 }
