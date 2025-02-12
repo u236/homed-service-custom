@@ -82,6 +82,7 @@ void Controller::deviceEvent(DeviceObject *device, Event event)
 QVariant Controller::parsePattern(QString string, const QVariant &data)
 {
     QRegExp replace("\\{\\{[^\\{\\}]*\\}\\}"), split("\\s+(?=(?:[^']*['][^']*['])*[^']*$)");
+    QList <QString> operators {"==", "!=", ">", ">=", "<", "<="};
     int position;
 
     if (string.isEmpty())
@@ -91,6 +92,7 @@ QVariant Controller::parsePattern(QString string, const QVariant &data)
     {
         QString capture = replace.cap(), value = capture.mid(2, capture.length() - 4).trimmed();
         QList list = value.split(split);
+        double number;
 
         for (int i = 0; i < list.count(); i++)
         {
@@ -104,18 +106,32 @@ QVariant Controller::parsePattern(QString string, const QVariant &data)
                 list.replace(i, data.toString());
         }
 
-        while (list.count() >= 7)
+        number = Expression(list.join(0x20)).result();
+
+        if (!isnan(number))
+        {
+            string.replace(position, capture.length(), QString::number(number, 'f').remove(QRegExp("0+$")).remove(QRegExp("\\.$")));
+            continue;
+        }
+
+        while (list.count() >= 7 && list.at(1) == "if" && list.at(5) == "else")
         {
             QList <QString> tail = list.mid(7);
-            int index;
+            bool check = false;
 
-            if (list.at(1) != "if" || list.at(5) != "else")
-                break;
+            switch (operators.indexOf(list.at(3)))
+            {
+                case 0: check = list.at(2) == list.at(4); break;
+                case 1: check = list.at(2) != list.at(4); break;
+                case 2: check = list.at(2).toDouble() > list.at(4).toDouble(); break;
+                case 3: check = list.at(2).toDouble() >= list.at(4).toDouble(); break;
+                case 4: check = list.at(2).toDouble() < list.at(4).toDouble(); break;
+                case 5: check = list.at(2).toDouble() <= list.at(4).toDouble(); break;
+            }
 
-            index = list.at(3) == "==" ? (list.at(2) == list.at(4) ? 0 : 6) : (list.at(2) != list.at(4) ? 0 : 6);
-            list =  QList <QString> {list.at(index)};
+            list = QList <QString> {list.at(check ? 0 : 6)};
 
-            if (!index)
+            if (check)
                 break;
 
             list.append(tail);
