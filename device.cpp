@@ -53,7 +53,7 @@ Device DeviceList::byName(const QString &name, int *index)
 
 Device DeviceList::parse(const QJsonObject &json)
 {
-    QString id = json.value("id").toString();
+    QString id = json.value("id").toString().replace(QRegExp("[\\+|\\#|\\/]"), "_");
     QJsonArray exposes = json.value("exposes").toArray();
     QJsonObject bindings = json.value("bindings").toObject();
     Device device;
