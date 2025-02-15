@@ -99,11 +99,19 @@ QVariant Controller::parsePattern(QString string, const QVariant &data)
             QString item = list.at(i);
 
             if (item.startsWith('\'') && item.endsWith('\''))
-                list.replace(i, item.mid(1, item.length() - 2));
+                item = item.mid(1, item.length() - 2);
+
+            if (item.startsWith('\\'))
+                item = item.mid(1);
             else if (item.startsWith("json."))
-                list.replace(i, Parser::jsonValue(QJsonDocument::fromJson(data.toString().toUtf8()).object(), item.split('.').mid(1).join('.')).toString());
+                item = Parser::jsonValue(QJsonDocument::fromJson(data.toString().toUtf8()).object(), item.split('.').mid(1).join('.')).toString();
             else if (item == "value")
-                list.replace(i, data.toString());
+                item = data.toString();
+
+            if (item == list.at(i))
+                continue;
+
+            list.replace(i, item);
         }
 
         number = Expression(list.join(0x20)).result();
