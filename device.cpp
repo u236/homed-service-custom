@@ -61,7 +61,7 @@ Device DeviceList::parse(const QJsonObject &json)
 
     if (!id.isEmpty() && !exposes.isEmpty())
     {
-        device = Device(new DeviceObject(id, mqttSafe(json.value("name").toString())));
+        device = Device(new DeviceObject(id, json.value("availabilityTopic").toString(), json.value("availabilityPattern").toString(), mqttSafe(json.value("name").toString())));
         endpoint = Endpoint(new EndpointObject(DEFAULT_ENDPOINT, device));
 
         if (json.contains("active"))
@@ -115,6 +115,9 @@ Device DeviceList::parse(const QJsonObject &json)
 
             endpoint->bindings().insert(it.key(), binding);
         }
+
+        if (!device->availabilityTopic().isEmpty())
+            emit addSubscription(device->availabilityTopic());
 
         connect(device->timer(), &QTimer::timeout, this, &DeviceList::deviceTimeout);
         device->timer()->setSingleShot(true);
@@ -270,6 +273,12 @@ QJsonArray DeviceList::serializeDevices(void)
 
         if (device->name() != device->id())
             json.insert("name", device->name());
+
+        if (!device->availabilityTopic().isEmpty())
+            json.insert("availabilityTopic", device->availabilityTopic());
+
+        if (!device->availabilityPattern().isEmpty())
+            json.insert("availabilityPattern", device->availabilityPattern());
 
         if (!device->note().isEmpty())
             json.insert("note", device->note());

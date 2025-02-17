@@ -31,9 +31,7 @@ void Controller::publishExposes(DeviceObject *device, bool remove)
     if (remove)
         return;
 
-    if (device->active()) // TODO: real devices availability
-        mqttPublish(mqttTopic("device/custom/%1").arg(m_devices->names() ? device->name() : device->id()), {{"status", "online"}}, true);
-
+    mqttPublish(mqttTopic("device/custom/%1").arg(m_devices->names() ? device->name() : device->id()), {{"status", device->active() && (!device->real() || device->availabilityTopic().isEmpty()) ? "online" : "offline"}}, true);
     m_timer->start(UPDATE_PROPERTIES_DELAY);
 }
 
@@ -157,10 +155,6 @@ void Controller::quit(void)
     for (int i = 0; i < m_devices->count(); i++)
     {
         const Device &device = m_devices->at(i);
-
-        if (device->real() && !device->active())
-            continue;
-
         mqttPublish(mqttTopic("device/custom/%1").arg(m_devices->names() ? device->name() : device->id()), {{"status", "offline"}}, true);
     }
 
@@ -173,6 +167,9 @@ void Controller::mqttConnected(void)
     mqttSubscribe(mqttTopic("fd/custom/#"));
     mqttSubscribe(mqttTopic("td/custom/#"));
 
+    for (int i = 0; i < m_devices->count(); i++)
+        publishExposes(m_devices->at(i).data());
+
     for (int i = 0; i < m_subscriptions.count(); i++)
     {
         logInfo << "MQTT subscribed to" << m_subscriptions.at(i);
@@ -184,9 +181,6 @@ void Controller::mqttConnected(void)
         mqttPublishDiscovery("Custom", SERVICE_VERSION, m_haPrefix);
         mqttSubscribe(m_haStatus);
     }
-
-    for (int i = 0; i < m_devices->count(); i++)
-        publishExposes(m_devices->at(i).data());
 
     m_devices->storeDatabase();
     mqttPublishStatus();
@@ -204,7 +198,7 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
             const Device &device = m_devices->at(i);
             const Endpoint &endpoint = device->endpoints().value(DEFAULT_ENDPOINT);
 
-            if (!device->real())
+            if (!device->active() || !device->real())
                 continue;
 
             for (auto it = endpoint->bindings().begin(); it != endpoint->bindings().end(); it++)
@@ -223,6 +217,11 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
                 device->timer()->start(UPDATE_DEVICE_DELAY);
                 m_devices->storeProperties();
             }
+
+            if (device->availabilityTopic() != topic.name())
+                continue;
+
+            mqttPublish(mqttTopic("device/custom/%1").arg(m_devices->names() ? device->name() : device->id()), {{"status", parsePattern(device->availabilityPattern(), message).toString() == "online" ? "online" : "offline"}}, true);
         }
     }
 
@@ -332,7 +331,7 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
         Device device = m_devices->byName(list.value(2));
         Endpoint endpoint;
 
-        if (device.isNull() || !device->real() || !device->active())
+        if (device.isNull() || !device->active() || !device->real())
             return;
 
         endpoint = device->endpoints().value(DEFAULT_ENDPOINT);
