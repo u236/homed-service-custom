@@ -95,6 +95,7 @@ QVariant Controller::parsePattern(QString string, const QVariant &data)
         for (int i = 0; i < list.count(); i++)
         {
             QString item = list.at(i);
+            bool check;
 
             if (item.startsWith('\'') && item.endsWith('\''))
                 item = item.mid(1, item.length() - 2);
@@ -102,14 +103,15 @@ QVariant Controller::parsePattern(QString string, const QVariant &data)
             if (item.startsWith('\\'))
                 item = item.mid(1);
             else if (item.startsWith("json."))
-                item = Parser::jsonValue(QJsonDocument::fromJson(data.toString().toUtf8()).object(), item.split('.').mid(1).join('.')).toString();
+                item = Parser::jsonValue(QJsonDocument::fromJson(data.toString().toUtf8()).object(), item.mid(item.indexOf('.') + 1)).toString();
             else if (item == "value")
                 item = data.toString();
 
             if (item == list.at(i))
                 continue;
 
-            list.replace(i, item);
+            item.toDouble(&check);
+            list.replace(i, check ? item : QString("'%1'").arg(item));
         }
 
         number = Expression(list.join(0x20)).result();
@@ -118,6 +120,16 @@ QVariant Controller::parsePattern(QString string, const QVariant &data)
         {
             string.replace(position, capture.length(), QString::number(number, 'f').remove(QRegExp("0+$")).remove(QRegExp("\\.$")));
             continue;
+        }
+
+        for (int i = 0; i < list.count(); i++)
+        {
+            QString item = list.at(i);
+
+            if (!item.startsWith('\'') || !item.endsWith('\''))
+                continue;
+
+            list.replace(i, item.mid(1, item.length() - 2));
         }
 
         while (list.count() >= 7 && list.at(1) == "if" && list.at(5) == "else")
