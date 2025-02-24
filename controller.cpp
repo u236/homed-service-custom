@@ -134,7 +134,6 @@ QVariant Controller::parsePattern(QString string, const QVariant &data)
 
         while (list.count() >= 7 && list.at(1) == "if" && list.at(5) == "else")
         {
-            QList <QString> tail = list.mid(7);
             bool check = false;
 
             switch (operators.indexOf(list.at(3)))
@@ -148,12 +147,7 @@ QVariant Controller::parsePattern(QString string, const QVariant &data)
                 case 6: check = list.at(2).toDouble() <= list.at(4).toDouble(); break;
             }
 
-            list = QList <QString> {list.at(check ? 0 : 6)};
-
-            if (check)
-                break;
-
-            list.append(tail);
+            list = check ? list.mid(0, 1) : list.mid(6);
         }
 
         string.replace(position, capture.length(), list.join(0x20));
