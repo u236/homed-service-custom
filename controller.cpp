@@ -4,7 +4,7 @@
 #include "logger.h"
 #include "parser.h"
 
-Controller::Controller(const QString &configFile) : HOMEd(configFile), m_timer(new QTimer(this)), m_devices(new DeviceList(getConfig(), this)), m_commands(QMetaEnum::fromType <Command> ()), m_events(QMetaEnum::fromType <Event> ())
+Controller::Controller(const QString &configFile) : HOMEd(configFile, true), m_timer(new QTimer(this)), m_devices(new DeviceList(getConfig(), this)), m_commands(QMetaEnum::fromType <Command> ()), m_events(QMetaEnum::fromType <Event> ())
 {
     logInfo << "Starting version" << SERVICE_VERSION;
     logInfo << "Configuration file is" << getConfig()->fileName();
@@ -31,7 +31,7 @@ void Controller::publishExposes(DeviceObject *device, bool remove)
     if (remove)
         return;
 
-    mqttPublish(mqttTopic("device/custom/%1").arg(m_devices->names() ? device->name() : device->id()), {{"status", device->active() && (!device->real() || device->availabilityTopic().isEmpty()) ? "online" : "offline"}}, true);
+    mqttPublish(mqttTopic("device/%1/%2").arg(serviceTopic(), m_devices->names() ? device->name() : device->id()), {{"status", device->active() && (!device->real() || device->availabilityTopic().isEmpty()) ? "online" : "offline"}}, true);
     m_timer->start(UPDATE_PROPERTIES_DELAY);
 }
 
@@ -42,12 +42,12 @@ void Controller::publishProperties(DeviceObject *device)
     if (endpoint->properties().isEmpty())
         return;
 
-    mqttPublish(mqttTopic("fd/custom/%1").arg(m_devices->names() ? device->name() : device->id()), QJsonObject::fromVariantMap(endpoint->properties()), device->options().value("retain").toBool());
+    mqttPublish(mqttTopic("fd/%1/%2").arg(serviceTopic(), m_devices->names() ? device->name() : device->id()), QJsonObject::fromVariantMap(endpoint->properties()), device->options().value("retain").toBool());
 }
 
 void Controller::publishEvent(const QString &name, Event event)
 {
-    mqttPublish(mqttTopic("event/custom"), {{"device", name}, {"event", m_events.valueToKey(static_cast <int> (event))}});
+    mqttPublish(mqttTopic("event/%1").arg(serviceTopic()), {{"device", name}, {"event", m_events.valueToKey(static_cast <int> (event))}});
 }
 
 void Controller::deviceEvent(DeviceObject *device, Event event)
@@ -58,7 +58,7 @@ void Controller::deviceEvent(DeviceObject *device, Event event)
     {
         case Event::aboutToRename:
         case Event::removed:
-            mqttPublish(mqttTopic("device/custom/%1").arg(m_devices->names() ? device->name() : device->id()), QJsonObject(), true);
+            mqttPublish(mqttTopic("device/%1/%2").arg(serviceTopic(), m_devices->names() ? device->name() : device->id()), QJsonObject(), true);
             remove = true;
             break;
 
@@ -161,7 +161,7 @@ void Controller::quit(void)
     for (int i = 0; i < m_devices->count(); i++)
     {
         const Device &device = m_devices->at(i);
-        mqttPublish(mqttTopic("device/custom/%1").arg(m_devices->names() ? device->name() : device->id()), {{"status", "offline"}}, true);
+        mqttPublish(mqttTopic("device/%1/%2").arg(serviceTopic(), m_devices->names() ? device->name() : device->id()), {{"status", "offline"}}, true);
     }
 
     HOMEd::quit();
@@ -169,9 +169,9 @@ void Controller::quit(void)
 
 void Controller::mqttConnected(void)
 {
-    mqttSubscribe(mqttTopic("command/custom"));
-    mqttSubscribe(mqttTopic("fd/custom/#"));
-    mqttSubscribe(mqttTopic("td/custom/#"));
+    mqttSubscribe(mqttTopic("command/%1").arg(serviceTopic()));
+    mqttSubscribe(mqttTopic("fd/%1/#").arg(serviceTopic()));
+    mqttSubscribe(mqttTopic("td/%1/#").arg(serviceTopic()));
 
     for (int i = 0; i < m_devices->count(); i++)
         publishExposes(m_devices->at(i).data());
@@ -227,11 +227,11 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
             if (device->availabilityTopic() != topic.name())
                 continue;
 
-            mqttPublish(mqttTopic("device/custom/%1").arg(m_devices->names() ? device->name() : device->id()), {{"status", parsePattern(device->availabilityPattern(), message).toString() == "online" ? "online" : "offline"}}, true);
+            mqttPublish(mqttTopic("device/%1/%2").arg(serviceTopic(), m_devices->names() ? device->name() : device->id()), {{"status", parsePattern(device->availabilityPattern(), message).toString() == "online" ? "online" : "offline"}}, true);
         }
     }
 
-    if (subTopic == "command/custom")
+    if (subTopic == QString("command/%1").arg(serviceTopic()))
     {
         switch (static_cast <Command> (m_commands.keyToValue(json.value("action").toString().toUtf8().constData())))
         {
@@ -331,10 +331,10 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
             }
         }
     }
-    else if (subTopic.startsWith("fd/custom/"))
+    else if (subTopic.startsWith(QString("fd/%1/").arg(serviceTopic())))
     {
-        QList <QString> list = subTopic.split('/');
-        Device device = m_devices->byName(list.value(2));
+        QList <QString> list = subTopic.remove(QString("fd/%1/").arg(serviceTopic())).split('/');
+        Device device = m_devices->byName(list.value(0));
         Endpoint endpoint;
 
         if (device.isNull() || !device->active() || !device->real())
@@ -358,10 +358,10 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
 
         m_devices->storeProperties();
     }
-    else if (subTopic.startsWith("td/custom/"))
+    else if (subTopic.startsWith(QString("td/%1/").arg(serviceTopic())))
     {
-        QList <QString> list = subTopic.split('/');
-        Device device = m_devices->byName(list.value(2));
+        QList <QString> list = subTopic.remove(QString("td/%1/").arg(serviceTopic())).split('/');
+        Device device = m_devices->byName(list.value(0));
         Endpoint endpoint;
 
         if (device.isNull() || !device->active())
@@ -422,7 +422,7 @@ void Controller::updateProperties(void)
 
 void Controller::statusUpdated(const QJsonObject &json)
 {
-    mqttPublish(mqttTopic("status/custom"), json, true);
+    mqttPublish(mqttTopic("status/%1").arg(serviceTopic()), json, true);
 }
 
 void Controller::devicetUpdated(DeviceObject *device)
