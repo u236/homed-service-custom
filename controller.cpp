@@ -103,7 +103,7 @@ QVariant Controller::parsePattern(QString string, const QVariant &data)
             if (item.startsWith('\\'))
                 item = item.mid(1);
             else if (item.startsWith("json."))
-                item = Parser::jsonValue(QJsonDocument::fromJson(data.toString().toUtf8()).object(), item.mid(item.indexOf('.') + 1)).toString();
+                item = Parser::jsonValue(data.toString().toUtf8(), item.mid(item.indexOf('.') + 1)).toString();
             else if (item == "value")
                 item = data.toString();
 
