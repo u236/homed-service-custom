@@ -194,7 +194,7 @@ void Controller::mqttConnected(void)
 
 void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &topic)
 {
-    QString subTopic = topic.name().replace(mqttTopic(), QString());
+    QString subTopic = topic.name().replace(0, mqttTopic().length(), QString());
     QJsonObject json = QJsonDocument::fromJson(message).object();
 
     if (m_subscriptions.contains(topic.name()))
