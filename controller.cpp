@@ -31,7 +31,7 @@ void Controller::publishExposes(DeviceObject *device, bool remove)
     if (remove)
         return;
 
-    mqttPublish(mqttTopic("device/%1/%2").arg(serviceTopic(), m_devices->names() ? device->name() : device->id()), {{"status", device->active() && (!device->real() || device->availabilityTopic().isEmpty()) ? "online" : "offline"}}, true);
+    mqttPublish(mqttTopic("device/%1/%2").arg(serviceTopic(), m_devices->names() ? device->name() : device->id().remove(':')), {{"status", device->active() && (!device->real() || device->availabilityTopic().isEmpty()) ? "online" : "offline"}}, true);
     m_timer->start(UPDATE_PROPERTIES_DELAY);
 }
 
