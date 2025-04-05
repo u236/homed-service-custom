@@ -26,7 +26,7 @@ Controller::Controller(const QString &configFile) : HOMEd(configFile, true), m_t
 
 void Controller::publishExposes(DeviceObject *device, bool remove)
 {
-    device->publishExposes(this, device->id(), QString("%1_%2").arg(uniqueId(), device->id()), m_haPrefix, m_haEnabled, m_devices->names(), remove);
+    device->publishExposes(this, device->id(), QString("%1_%2").arg(uniqueId(), device->id().remove(':')), m_haPrefix, m_haEnabled, m_devices->names(), remove);
 
     if (remove)
         return;
@@ -80,7 +80,7 @@ void Controller::deviceEvent(DeviceObject *device, Event event)
 QVariant Controller::parsePattern(QString string, const QVariant &data)
 {
     QRegExp replace("\\{\\{[^\\{\\}]*\\}\\}"), split("\\s+(?=(?:[^']*['][^']*['])*[^']*$)");
-    QList <QString> operators {"is", "==", "!=", ">", ">=", "<", "<="};
+    QList <QString> operatorList = {"is", "==", "!=", ">", ">=", "<", "<="};
     int position;
 
     if (string.isEmpty())
@@ -89,7 +89,7 @@ QVariant Controller::parsePattern(QString string, const QVariant &data)
     while ((position = replace.indexIn(string)) != -1)
     {
         QString capture = replace.cap(), value = capture.mid(2, capture.length() - 4).trimmed();
-        QList list = value.split(split);
+        QList <QString> list = value.split(split, Qt::SkipEmptyParts);
         double number;
 
         for (int i = 0; i < list.count(); i++)
@@ -136,7 +136,7 @@ QVariant Controller::parsePattern(QString string, const QVariant &data)
         {
             bool check = false;
 
-            switch (operators.indexOf(list.at(3)))
+            switch (operatorList.indexOf(list.at(3)))
             {
                 case 0: check = list.at(4) == "defined" ? !list.at(2).isEmpty() : list.at(4) == "undefined" ? list.at(2).isEmpty() : false; break;
                 case 1: check = list.at(2) == list.at(4); break;
