@@ -1,7 +1,7 @@
 #ifndef CONTROLLER_H
 #define CONTROLLER_H
 
-#define SERVICE_VERSION             "2.0.8"
+#define SERVICE_VERSION             "2.0.9"
 #define UPDATE_DEVICE_DELAY         100
 #define UPDATE_PROPERTIES_DELAY     1000
 
