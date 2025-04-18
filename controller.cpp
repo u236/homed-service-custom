@@ -102,10 +102,12 @@ QVariant Controller::parsePattern(QString string, const QVariant &data)
 
             if (item.startsWith('\\'))
                 item = item.mid(1);
+            else if (item.startsWith("array."))
+                item = Parser::arrayValue(item.mid(item.indexOf('.') + 1));
             else if (item.startsWith("json."))
                 item = Parser::jsonValue(data.toString().toUtf8(), item.mid(item.indexOf('.') + 1)).toString();
             else if (item == "value")
-                item = data.toString();
+                item = data.type() == QVariant::List ? data.toStringList().join(',') : data.toString();
 
             if (item == list.at(i))
                 continue;
@@ -210,11 +212,24 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
             for (auto it = endpoint->bindings().begin(); it != endpoint->bindings().end(); it++)
             {
                 QVariant value;
+                QString string;
 
                 if (it.value()->inTopic() != topic.name())
                     continue;
 
                 value = parsePattern(it.value()->inPattern(), message);
+                string = value.toString();
+
+                if (string.contains(','))
+                {
+                    QList <QString> list = string.split(',');
+                    QJsonArray array;
+
+                    for (int i = 0; i < list.count(); i++)
+                        array.append(QJsonValue::fromVariant(Parser::stringValue(list.at(i))));
+
+                    value = array;
+                }
 
                 if (!value.isValid() || endpoint->properties().value(it.key()) == value)
                     continue;
