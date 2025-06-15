@@ -107,6 +107,8 @@ QVariant Controller::parsePattern(QString string, const QVariant &data)
                 value = Parser::formatValue(item.mid(item.indexOf('.') + 1));
             else if (item.startsWith("json."))
                 value = Parser::jsonValue(data.toString().toUtf8(), item.mid(item.indexOf('.') + 1));
+            else if (item.startsWith("url."))
+                value = Parser::urlValue(data.toString().toUtf8(), item.mid(item.indexOf('.') + 1));
             else if (item == "value")
                 value = data;
 
