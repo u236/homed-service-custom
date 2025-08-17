@@ -413,6 +413,9 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
             endpoint->properties().insert(it.key(), value);
         }
 
+        if (device->real())
+            return;
+
         device->timer()->start(UPDATE_DEVICE_DELAY);
         m_devices->storeProperties();
     }
