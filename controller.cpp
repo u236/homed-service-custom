@@ -108,9 +108,10 @@ QVariant Controller::parsePattern(QString string, const QVariant &data)
                 value = Parser::urlValue(data.toString().toUtf8(), item.mid(item.indexOf('.') + 1));
             else if (item == "value")
                 value = data;
+            else
+                value = item;
 
-            if (value.isValid())
-                item = value.type() == QVariant::List ? value.toStringList().join(',') : value.toString();
+            item = value.type() == QVariant::List ? value.toStringList().join(',') : value.toString();
 
             if (item == list.at(i))
                 continue;
@@ -158,7 +159,7 @@ QVariant Controller::parsePattern(QString string, const QVariant &data)
         string.replace(position, capture.length(), list.join(0x20));
     }
 
-    return Parser::stringValue(string);
+    return string != "_NULL_" ? Parser::stringValue(string) : QVariant();
 }
 
 void Controller::quit(void)
