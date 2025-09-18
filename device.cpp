@@ -349,6 +349,7 @@ void DeviceList::writeDatabase(void)
     if (!m_sync)
         return;
 
+    json.remove("names");
     m_sync = false;
 
     if (writeFile(m_databaseFile, QJsonDocument(json).toJson(QJsonDocument::Compact)))
