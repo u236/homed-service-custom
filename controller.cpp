@@ -465,9 +465,8 @@ void Controller::addSubscription(const QString &topic, bool resubscribe)
 
     m_subscriptions.append(topic);
 
-    if (mqttStatus())
-    {
-        logInfo << "MQTT subscribed to" << topic;
-        mqttSubscribe(topic);
-    }
+    if (!mqttStatus())
+        return;
+
+    QTimer::singleShot(SUBSCRIPTION_DELAY, this, [this, topic] () { logInfo << "MQTT subscribed to" << topic; mqttSubscribe(topic); });
 }
