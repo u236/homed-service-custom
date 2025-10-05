@@ -70,7 +70,7 @@ private slots:
 
     void statusUpdated(const QJsonObject &json);
     void devicetUpdated(DeviceObject *device);
-    void addSubscription(const QString &topic);
+    void addSubscription(const QString &topic, bool resubscribe);
 
 };
 

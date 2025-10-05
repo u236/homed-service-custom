@@ -117,7 +117,7 @@ Device DeviceList::parse(const QJsonObject &json)
         }
 
         if (!device->availabilityTopic().isEmpty())
-            emit addSubscription(device->availabilityTopic());
+            emit addSubscription(device->availabilityTopic(), true);
 
         connect(device->timer(), &QTimer::timeout, this, &DeviceList::deviceTimeout);
         device->timer()->setSingleShot(true);

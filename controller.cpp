@@ -452,10 +452,16 @@ void Controller::devicetUpdated(DeviceObject *device)
     publishProperties(device);
 }
 
-void Controller::addSubscription(const QString &topic)
+void Controller::addSubscription(const QString &topic, bool resubscribe)
 {
     if (m_subscriptions.contains(topic))
-        return;
+    {
+        if (!resubscribe)
+            return;
+
+        m_subscriptions.removeAll(topic);
+        mqttUnsubscribe(topic);
+    }
 
     m_subscriptions.append(topic);
 
