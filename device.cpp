@@ -216,6 +216,7 @@ QJsonArray DeviceList::serializeDevices(void)
         {
             QString expose = it.key().split('_').value(0);
             QMap <QString, QVariant> option, map;
+            QJsonObject data;
 
             if (it.value().type() != QVariant::Map)
             {
@@ -230,10 +231,12 @@ QJsonArray DeviceList::serializeDevices(void)
                 if (map.value(it.key()) == it.value())
                     map.remove(it.key());
 
-            if (map.isEmpty())
+            data = QJsonObject::fromVariantMap(map);
+
+            if (map.isEmpty() || (it.key().contains('_') && options.value(expose) == data))
                 continue;
 
-            options.insert(it.key(), QJsonObject::fromVariantMap(map));
+            options.insert(it.key(), data);
         }
 
         for (auto it = endpoint->bindings().begin(); it != endpoint->bindings().end(); it++)
