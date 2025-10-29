@@ -268,7 +268,7 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
             {
                 int index = -1;
                 QJsonObject data = json.value("data").toObject();
-                QString id = data.value("id").toString().trimmed(), name = data.value("name").toString().trimmed();
+                QString id = mqttSafe(data.value("id").toString()), name = mqttSafe(data.value("name").toString());
                 Device device = m_devices->byName(json.value("device").toString(), &index), other = m_devices->byName(id);
                 QMap <QString, QVariant> properies;
 
