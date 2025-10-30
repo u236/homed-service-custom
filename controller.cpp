@@ -1,4 +1,3 @@
-#include <QFile>
 #include <QMimeDatabase>
 #include "controller.h"
 #include "logger.h"

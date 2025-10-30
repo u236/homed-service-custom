@@ -5,7 +5,6 @@
 #define STORE_DATABASE_DELAY        20
 #define STORE_PROPERTIES_DELAY      1000
 
-#include <QFile>
 #include "endpoint.h"
 
 class BindingObject;
