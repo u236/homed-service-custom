@@ -217,17 +217,15 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
             for (auto it = endpoint->bindings().begin(); it != endpoint->bindings().end(); it++)
             {
                 QVariant value;
-                QString string;
 
                 if (it.value()->inTopic() != topic.name())
                     continue;
 
                 value = parsePattern(it.value()->inPattern(), message);
-                string = value.toString();
 
-                if (string.contains(','))
+                if (it.key().split('_').value(0) == "color")
                 {
-                    QList <QString> list = string.split(',');
+                    QList <QString> list = value.toString().split(',');
                     QJsonArray array;
 
                     for (int i = 0; i < list.count(); i++)
