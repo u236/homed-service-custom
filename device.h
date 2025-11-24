@@ -15,17 +15,20 @@ class BindingObject
 
 public:
 
-    BindingObject(const QString &inTopic, const QString &inPattern, const QString &outTopic, const QString &outPattern) :
-        m_inTopic(inTopic), m_inPattern(inPattern), m_outTopic(outTopic), m_outPattern(outPattern) {}
+    BindingObject(const QString &inTopic, const QString &inPattern, const QString &outTopic, const QString &outPattern, bool retain) :
+        m_inTopic(inTopic), m_inPattern(inPattern), m_outTopic(outTopic), m_outPattern(outPattern), m_retain(retain) {}
 
     inline QString inTopic(void) { return m_inTopic; }
     inline QString inPattern(void) { return m_inPattern; }
     inline QString outTopic(void) { return m_outTopic; }
     inline QString outPattern(void) { return m_outPattern; }
 
+    inline bool retain(void) { return m_retain; }
+
 private:
 
     QString m_inTopic, m_inPattern, m_outTopic, m_outPattern;
+    bool m_retain;
 
 };
 

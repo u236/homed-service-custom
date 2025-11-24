@@ -105,7 +105,7 @@ Device DeviceList::parse(const QJsonObject &json)
         for (auto it = bindings.begin(); it != bindings.end(); it++)
         {
             QJsonObject item = it.value().toObject();
-            Binding binding(new BindingObject(item.value("inTopic").toString(), item.value("inPattern").toString(), item.value("outTopic").toString(), item.value("outPattern").toString()));
+            Binding binding(new BindingObject(item.value("inTopic").toString(), item.value("inPattern").toString(), item.value("outTopic").toString(), item.value("outPattern").toString(), item.value("retain").toBool()));
 
             if (binding->inTopic().isEmpty() && binding->outTopic().isEmpty())
                 continue;
@@ -255,6 +255,9 @@ QJsonArray DeviceList::serializeDevices(void)
             {
                 if (!it.value()->outPattern().isEmpty())
                     binding.insert("outPattern", it.value()->outPattern());
+
+                if (it.value()->retain())
+                    binding.insert("retain", it.value()->retain());
 
                 binding.insert("outTopic", it.value()->outTopic());
             }

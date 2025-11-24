@@ -399,7 +399,7 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
                 const Binding &binding = endpoint->bindings().value(it.key());
 
                 if (!binding.isNull() && !binding->outTopic().isEmpty())
-                    mqttPublishString(binding->outTopic(), parsePattern(binding->outPattern(), value).toString());
+                    mqttPublishString(binding->outTopic(), parsePattern(binding->outPattern(), value).toString(), binding->retain());
 
                 continue;
             }
