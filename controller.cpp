@@ -106,6 +106,8 @@ QVariant Controller::parsePattern(QString string, const QVariant &data)
                 value = Parser::urlValue(data.toString().toUtf8(), item.mid(item.indexOf('.') + 1));
             else if (item.startsWith("xml."))
                 value = Parser::xmlValue(data.toString().toUtf8(), item.mid(item.indexOf('.') + 1));
+            else if (QRegExp("^value\\[\\d\\]$").exactMatch(item))
+                value = data.toList().value(item.mid(6, item.length() - 7).toInt());
             else if (item == "value")
                 value = data;
             else
