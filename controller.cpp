@@ -8,6 +8,7 @@ Controller::Controller(const QString &configFile) : HOMEd(SERVICE_VERSION, confi
     m_haPrefix = getConfig()->value("homeassistant/prefix", "homeassistant").toString();
     m_haStatus = getConfig()->value("homeassistant/status", "homeassistant/status").toString();
     m_haEnabled = getConfig()->value("homeassistant/enabled", false).toBool();
+    m_haUpdate = getConfig()->value("homeassistant/update", false).toBool();
 
     connect(m_timer, &QTimer::timeout, this, &Controller::updateProperties);
     connect(m_devices, &DeviceList::statusUpdated, this, &Controller::statusUpdated);
@@ -22,7 +23,7 @@ Controller::Controller(const QString &configFile) : HOMEd(SERVICE_VERSION, confi
 
 void Controller::publishExposes(DeviceObject *device, bool remove)
 {
-    device->publishExposes(this, device->id(), QString("%1_%2").arg(uniqueId(), device->id().remove(':')), m_haPrefix, m_haEnabled, m_devices->names(), remove);
+    device->publishExposes(this, device->id(), QString("%1_%2").arg(uniqueId(), device->id().remove(':')), m_haPrefix, m_haEnabled, m_haUpdate, m_devices->names(), remove);
 
     if (remove)
         return;

@@ -1,7 +1,7 @@
 #ifndef CONTROLLER_H
 #define CONTROLLER_H
 
-#define SERVICE_VERSION             "2.1.6"
+#define SERVICE_VERSION             "2.1.7"
 #define SUBSCRIPTION_DELAY          1000
 
 #define UPDATE_DEVICE_DELAY         100
@@ -48,7 +48,7 @@ private:
 
     QMetaEnum m_commands, m_events;
     QString m_haPrefix, m_haStatus;
-    bool m_haEnabled;
+    bool m_haEnabled, m_haUpdate;
 
     QList <QString> m_subscriptions;
 
