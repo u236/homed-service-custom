@@ -147,7 +147,9 @@ void DeviceList::init(void)
 
 void DeviceList::storeDatabase(bool sync)
 {
-    m_sync = sync;
+    if (sync)
+        m_sync = true;
+
     m_databaseTimer->start(STORE_DATABASE_DELAY);
 }
 
