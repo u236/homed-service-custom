@@ -1,0 +1,4 @@
+name = homed-custom
+description = HOMEd Custom Service
+maintainer = u236 <mail@u236.org>
+depends = homed-common homed-qt
