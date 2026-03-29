@@ -1,0 +1,6 @@
+#!/bin/sh
+
+/etc/init.d/homed-custom enable
+/etc/init.d/homed-custom start
+
+exit 0
