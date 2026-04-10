@@ -55,12 +55,13 @@ class DeviceObject : public AbstractDeviceObject
 
 public:
 
-    DeviceObject(const QString &id, const QString &availabilityTopic, const QString &availabilityPattern, const QString name) :
-        AbstractDeviceObject(name.isEmpty() ? id : name), m_timer(new QTimer(this)), m_id(id), m_availabilityTopic(availabilityTopic), m_availabilityPattern(availabilityPattern), m_real(false) {}
+    DeviceObject(const QString &id, const QString &service, const QString &availabilityTopic, const QString &availabilityPattern, const QString name) :
+        AbstractDeviceObject(name.isEmpty() ? id : name), m_timer(new QTimer(this)), m_id(id), m_service(service), m_availabilityTopic(availabilityTopic), m_availabilityPattern(availabilityPattern), m_real(false) {}
 
     inline QTimer *timer(void) { return m_timer; }
 
     inline QString id(void) { return m_id; }
+    inline QString service(void) { return m_service; }
     inline QString availabilityTopic(void) { return m_availabilityTopic; }
     inline QString availabilityPattern(void) { return m_availabilityPattern; }
 
@@ -70,7 +71,7 @@ public:
 private:
 
     QTimer *m_timer;
-    QString m_id, m_availabilityTopic, m_availabilityPattern;
+    QString m_id, m_service, m_availabilityTopic, m_availabilityPattern;
     bool m_real;
 
 };
