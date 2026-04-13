@@ -1,7 +1,7 @@
 #ifndef CONTROLLER_H
 #define CONTROLLER_H
 
-#define SERVICE_VERSION             "2.1.7"
+#define SERVICE_VERSION             "2.1.8"
 #define SUBSCRIPTION_DELAY          1000
 
 #define UPDATE_DEVICE_DELAY         100
@@ -70,7 +70,6 @@ private slots:
 
     void updateProperties(void);
 
-    void statusUpdated(const QJsonObject &json);
     void devicetUpdated(DeviceObject *device);
     void addSubscription(const QString &topic, bool resubscribe);
 
