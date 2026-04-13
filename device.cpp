@@ -5,7 +5,7 @@
 
 DeviceList::DeviceList(QSettings *config, QObject *parent) : QObject(parent), m_databaseTimer(new QTimer(this)), m_propertiesTimer(new QTimer(this)), m_names(false), m_sync(false)
 {
-    QFile file(config->value("device/expose", "/usr/share/homed-common/expose.json").toString());
+    QFile file(config->value("device/expose", reinterpret_cast <HOMEd*> (parent)->basePath().append("share/homed-common/expose.json")).toString());
 
     ExposeObject::registerMetaTypes();
 
@@ -339,7 +339,7 @@ void DeviceList::writeDatabase(void)
     json.remove("names");
     m_sync = false;
 
-    if (reinterpret_cast <Controller*> (parent())->writeFile(m_databaseFile, QJsonDocument(json).toJson(QJsonDocument::Compact)))
+    if (reinterpret_cast <HOMEd*> (parent())->writeFile(m_databaseFile, QJsonDocument(json).toJson(QJsonDocument::Compact)))
         return;
 
     logWarning << "Database not stored";
@@ -349,7 +349,7 @@ void DeviceList::writeProperties(void)
 {
     QJsonObject json = serializeProperties();
 
-    if (reinterpret_cast <Controller*> (parent())->writeFile(m_propertiesFile, QJsonDocument(json).toJson(QJsonDocument::Compact)))
+    if (reinterpret_cast <HOMEd*> (parent())->writeFile(m_propertiesFile, QJsonDocument(json).toJson(QJsonDocument::Compact)))
         return;
 
     logWarning << "Properties not stored";
