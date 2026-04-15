@@ -249,7 +249,7 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
             {
                 int index = -1;
                 QJsonObject data = json.value("data").toObject();
-                QString id = mqttSafe(data.value("id").toString()), name = mqttSafe(data.value("name").toString());
+                QString id = mqttSafe(data.value("id").toString()), name = mqttSafe(data.value("name").toString()), service;
                 Device device = m_devices->byName(json.value("device").toString(), &index), other = m_devices->byName(id);
                 QMap <QString, QVariant> properies;
 
@@ -274,10 +274,11 @@ void Controller::mqttReceived(const QByteArray &message, const QMqttTopicName &t
                     if (device->id() != id || device->name() != name)
                         deviceEvent(device.data(), Event::aboutToRename);
 
+                    service = device->service();
                     properies = device->endpoints().value(DEFAULT_ENDPOINT)->properties();
                 }
 
-                device = m_devices->parse(data);
+                device = m_devices->parse(data, service);
 
                 if (device.isNull())
                 {

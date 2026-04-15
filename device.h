@@ -93,7 +93,7 @@ public:
     void storeProperties(void);
 
     Device byName(const QString &name, int *index = nullptr);
-    Device parse(const QJsonObject &json);
+    Device parse(const QJsonObject &json, const QString &service = QString());
 
 private:
 

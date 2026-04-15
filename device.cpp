@@ -51,7 +51,7 @@ Device DeviceList::byName(const QString &name, int *index)
     return Device();
 }
 
-Device DeviceList::parse(const QJsonObject &json)
+Device DeviceList::parse(const QJsonObject &json, const QString &service)
 {
     QString id = mqttSafe(json.value("id").toString());
     QJsonArray exposes = json.value("exposes").toArray();
@@ -61,7 +61,7 @@ Device DeviceList::parse(const QJsonObject &json)
 
     if (!id.isEmpty() && !exposes.isEmpty())
     {
-        device = Device(new DeviceObject(id, json.value("service").toString(), json.value("availabilityTopic").toString(), json.value("availabilityPattern").toString(), mqttSafe(json.value("name").toString())));
+        device = Device(new DeviceObject(id, json.value("service").toString(service), json.value("availabilityTopic").toString(), json.value("availabilityPattern").toString(), mqttSafe(json.value("name").toString())));
         endpoint = Endpoint(new EndpointObject(DEFAULT_ENDPOINT, device));
 
         if (json.contains("active"))
