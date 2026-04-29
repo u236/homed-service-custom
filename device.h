@@ -86,7 +86,6 @@ public:
     ~DeviceList(void);
 
     inline bool names(void) { return m_names; }
-    inline void setNames(bool value) { m_names = value; }
 
     void init(void);
     void storeDatabase(bool sync = false);
