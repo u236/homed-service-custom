@@ -155,6 +155,7 @@ void Controller::quit(void)
         mqttPublish(mqttTopic("device/%1/%2").arg(serviceTopic(), m_devices->names() ? device->name() : device->id()), {{"status", "offline"}}, true);
     }
 
+    delete m_devices;
     HOMEd::quit();
 }
 
