@@ -3,7 +3,7 @@
 #include "expose.h"
 #include "logger.h"
 
-DeviceList::DeviceList(QSettings *config, QObject *parent) : QObject(parent), m_databaseTimer(new QTimer(this)), m_propertiesTimer(new QTimer(this)), m_names(false), m_sync(false)
+DeviceList::DeviceList(QSettings *config, QObject *parent) : QObject(parent), m_databaseTimer(new QTimer(this)), m_propertiesTimer(new QTimer(this)), m_sync(false)
 {
     QFile file(config->value("device/expose", reinterpret_cast <HOMEd*> (parent)->basePath().append("share/homed-common/expose.json")).toString());
 
@@ -11,6 +11,8 @@ DeviceList::DeviceList(QSettings *config, QObject *parent) : QObject(parent), m_
 
     m_databaseFile.setFileName(config->value("device/database", "/opt/homed-custom/database.json").toString());
     m_propertiesFile.setFileName(config->value("device/properties", "/opt/homed-custom/properties.json").toString());
+
+    m_names = config->value("mqtt/names", false).toBool();
 
     if (file.open(QFile::ReadOnly))
     {

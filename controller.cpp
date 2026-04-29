@@ -15,8 +15,6 @@ Controller::Controller(const QString &configFile) : HOMEd(SERVICE_VERSION, confi
     connect(m_devices, &DeviceList::addSubscription, this, &Controller::addSubscription);
 
     m_timer->setSingleShot(true);
-
-    m_devices->setNames(getConfig()->value("mqtt/names", false).toBool());
     m_devices->init();
 }
 
