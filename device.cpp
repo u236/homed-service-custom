@@ -35,6 +35,38 @@ DeviceList::~DeviceList(void)
     writeProperties();
 }
 
+void DeviceList::init(void)
+{
+    QJsonObject json;
+
+    if (!m_databaseFile.open(QFile::ReadOnly))
+        return;
+
+    json = QJsonDocument::fromJson(m_databaseFile.readAll()).object();
+    unserializeDevices(json.value("devices").toArray());
+
+    m_databaseFile.close();
+
+    if (!m_propertiesFile.open(QFile::ReadOnly))
+        return;
+
+    unserializeProperties(QJsonDocument::fromJson(m_propertiesFile.readAll()).object());
+    m_propertiesFile.close();
+}
+
+void DeviceList::storeDatabase(bool sync)
+{
+    if (sync)
+        m_sync = true;
+
+    m_databaseTimer->start(STORE_DATABASE_DELAY);
+}
+
+void DeviceList::storeProperties(void)
+{
+    m_propertiesTimer->start(STORE_PROPERTIES_DELAY);
+}
+
 Device DeviceList::byName(const QString &name, int *index)
 {
     for (int i = 0; i < count(); i++)
@@ -126,42 +158,8 @@ Device DeviceList::parse(const QJsonObject &json, const QString &service)
     return device;
 }
 
-void DeviceList::init(void)
-{
-    QJsonObject json;
-
-    if (!m_databaseFile.open(QFile::ReadOnly))
-        return;
-
-    json = QJsonDocument::fromJson(m_databaseFile.readAll()).object();
-    unserializeDevices(json.value("devices").toArray());
-
-    m_databaseFile.close();
-
-    if (!m_propertiesFile.open(QFile::ReadOnly))
-        return;
-
-    unserializeProperties(QJsonDocument::fromJson(m_propertiesFile.readAll()).object());
-    m_propertiesFile.close();
-}
-
-void DeviceList::storeDatabase(bool sync)
-{
-    if (sync)
-        m_sync = true;
-
-    m_databaseTimer->start(STORE_DATABASE_DELAY);
-}
-
-void DeviceList::storeProperties(void)
-{
-    m_propertiesTimer->start(STORE_PROPERTIES_DELAY);
-}
-
 void DeviceList::unserializeDevices(const QJsonArray &devices)
 {
-    quint16 count = 0;
-
     for (auto it = devices.begin(); it != devices.end(); it++)
     {
         QJsonObject json = it->toObject();
@@ -176,11 +174,12 @@ void DeviceList::unserializeDevices(const QJsonArray &devices)
             continue;
 
         append(device);
-        count++;
     }
 
-    if (count)
-        logInfo << count << "devices loaded";
+    if (!count())
+        return;
+
+    logInfo << count() << "devices loaded";
 }
 
 void DeviceList::unserializeProperties(const QJsonObject &properties)
@@ -358,5 +357,5 @@ void DeviceList::writeProperties(void)
 
 void DeviceList::deviceTimeout(void)
 {
-    emit devicetUpdated(reinterpret_cast <DeviceObject*> (sender()->parent()));
+    emit deviceUpdated(reinterpret_cast <DeviceObject*> (sender()->parent()));
 }

@@ -109,8 +109,6 @@ private:
     QJsonArray serializeDevices(void);
     QJsonObject serializeProperties(void);
 
-    bool writeFile(QFile &file, const QByteArray &data);
-
 private slots:
 
     void writeDatabase(void);
@@ -119,7 +117,7 @@ private slots:
 
 signals:
 
-    void devicetUpdated(DeviceObject *device);
+    void deviceUpdated(DeviceObject *device);
     void addSubscription(const QString &topic, bool resubsctibe = false);
 
 };

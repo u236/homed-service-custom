@@ -11,7 +11,7 @@ Controller::Controller(const QString &configFile) : HOMEd(SERVICE_VERSION, confi
     m_haUpdate = getConfig()->value("homeassistant/update", false).toBool();
 
     connect(m_timer, &QTimer::timeout, this, &Controller::updateProperties);
-    connect(m_devices, &DeviceList::devicetUpdated, this, &Controller::devicetUpdated);
+    connect(m_devices, &DeviceList::deviceUpdated, this, &Controller::devicetUpdated);
     connect(m_devices, &DeviceList::addSubscription, this, &Controller::addSubscription);
 
     m_timer->setSingleShot(true);
