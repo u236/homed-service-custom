@@ -139,6 +139,10 @@ QVariant Controller::parsePattern(QString string, const QVariant &data)
         }
 
         Parser::checkConditions(list);
+
+        if (list.contains(QString()))
+            return QVariant();
+
         string.replace(position, capture.length(), list.join(0x20));
     }
 
