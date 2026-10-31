@@ -4,6 +4,7 @@
 #define DEFAULT_ENDPOINT            0
 #define STORE_DATABASE_DELAY        20
 #define STORE_PROPERTIES_DELAY      1000
+#define STORE_PROPERTIES_INTERVAL   60000
 
 #include "endpoint.h"
 
@@ -99,6 +100,7 @@ private:
     QTimer *m_databaseTimer, *m_propertiesTimer;
 
     QFile m_databaseFile, m_propertiesFile;
+    qint64 m_propertiesTime;
     bool m_names, m_sync;
 
     QMap <QString, QVariant> m_exposeOptions;
