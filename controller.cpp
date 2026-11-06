@@ -1,4 +1,3 @@
-#include <QMimeDatabase>
 #include "controller.h"
 #include "logger.h"
 #include "parser.h"

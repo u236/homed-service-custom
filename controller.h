@@ -3,7 +3,6 @@
 
 #define SERVICE_VERSION             "2.1.12"
 #define SUBSCRIPTION_DELAY          1000
-
 #define UPDATE_DEVICE_DELAY         100
 #define UPDATE_PROPERTIES_DELAY     1000
 
